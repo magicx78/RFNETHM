@@ -1,7 +1,7 @@
 # RFNETHM — HmIP-Funk übers Netzwerk
 
 <p align="center">
-  <img src="logos/Lab-Setup.jpeg" alt="DIY WiFi Gateway: HmIP-RFUSB-Stick am ESP32-S3-Devkit" width="420">
+  <img src="logos/Lab-Setup.jpeg" alt="RFNETHM auf ESP32-P4-Module-DEV-KIT mit Raspberry-Pi-artigem 40-Pin-Header" width="420">
 </p>
 
 **Ein Adapter, der einen unmodifizierten HmIP-RFUSB-Stick (oder ein
@@ -10,6 +10,12 @@ ihn an einen lokalen USB-Port zu zwingen.  Damit wird der Funk-Stick
 zu einem netzwerkweit erreichbaren BidCoS-/HmIP-Frontend für FHEM,
 Homegear, piVCCU oder RaspberryMatic — ohne dass eine echte CCU oder
 ein Pi am Funk-Standort stehen muss.
+
+**ESP32-P4-Ziel:** Waveshare ESP32-P4-Module-DEV-KIT mit Raspberry-Pi-artiger
+40-Pin-Stiftleiste. Die mechanische Anordnung ähnelt dem Raspberry-Pi-Header;
+GPIO-Belegung und elektrische Kompatibilität sind davon unabhängig. Details
+stehen in [der P4-Anschlussdokumentation](docs/esp32p4_port.md). Das bisherige
+ESP32-S3-Ziel bleibt ebenfalls dokumentiert.
 
 Status: **Firmware v0.15.0** (2026-05-25), Devkit-Bringup abgeschlossen,
 alle vier Kreuze der Ground-Truth-Matrix (HB-RF-ETH × {HM-MOD,
@@ -21,10 +27,10 @@ wenn auf [`install.busware.de/rfnethm/`](https://install.busware.de/rfnethm/)
 eine neuere Firmware verfügbar ist) und einen vergrößerten LWIP-Socket-Pool
 gegen Reconnect-Storms. Eigenes PCB ist in Planung.
 
-Flashen geht am bequemsten über den **Browser-Webflasher** unter
-[`https://install.busware.de/rfnethm/`](https://install.busware.de/rfnethm/) —
-ESP32-S3 anstecken, *Connect*, fertig.  Updates kommen danach OTA übers
-WebUI; das Gerät meldet selbst wenn eine neue Version online ist.
+Das ESP32-S3-Ziel lässt sich bequem über den **Browser-Webflasher** unter
+[`https://install.busware.de/rfnethm/`](https://install.busware.de/rfnethm/)
+flashen und danach per OTA aktualisieren. Das ESP32-P4-Ziel wird separat
+gemäß [P4-Anleitung](docs/esp32p4_port.md) gebaut und geflasht.
 
 ---
 

@@ -13,6 +13,8 @@ dependencies:
     git: https://github.com/tostmann/improv-wifi-busware.git
     version: f3a25298f806cf963a1fa3be6c0021d1a77158c0
     path: components/improv_wifi_busware
+    rules:
+      - if: "target != esp32p4"
 
   espressif/mdns:
     # mDNS / DNS-SD Responder.  Seit IDF 5.x lebt mDNS als managed
@@ -20,3 +22,9 @@ dependencies:
     # Genutzt fuer bmcond-Discovery: _hbrfeth._udp / _rawuart._tcp /
     # _http._tcp werden bei STA-got-IP angemeldet (siehe mdns_glue.c).
     version: "^1.2"
+
+  espressif/ip101:
+    # IDF 6.x externalized the IP101 driver; IDF 5.5 ships it in esp_eth.
+    version: "^1.0.0"
+    rules:
+      - if: "idf_version >= 6.0"

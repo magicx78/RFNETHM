@@ -6,10 +6,10 @@
 // am eQ3-Pinheader-Adapter.  Pin-Belegung (Stand 2026-05-07, siehe
 // docs/breadboard_wiring.md):
 //
-//   GPIO17 → UART1 TX → eQ3-Pin 8  → Modul-RX (über R1 1K am HM-MOD-RPI-PCB)
-//   GPIO18 → UART1 RX ← eQ3-Pin 10 ← Modul-TX (über R2 1K am HM-MOD-RPI-PCB)
+//   UART1 TX → eQ3-Pin 8  → Modul-RX (P4: GPIO37; S3 wiring: GPIO17)
+//   UART1 RX ← eQ3-Pin 10 ← Modul-TX (P4 adapter: GPIO6; S3 wiring: GPIO18)
 //   GPIO16 → eQ3-Pin 12 → HM-MOD-RPI-PCB RST (TRX1.4 C2CK/RST, active LOW)
-//   GPIO7  → eQ3-Pin 35 → RPI-RF-MOD     RST (alternative)
+//   eQ3-Pin 35 → RPI-RF-MOD RST (P4: GPIO53; S3 wiring: GPIO7)
 //
 // Boot-Probe:
 //   1. RST GPIO16 active-LOW pulse → Release mit ESP-internem Pull-Up
@@ -40,10 +40,19 @@
 
 static const char *TAG = "src-uart";
 
-#define PIN_TX           17
-#define PIN_RX           18
+#ifndef RFNETHM_UART_TX_GPIO
+#define RFNETHM_UART_TX_GPIO 17
+#endif
+#ifndef RFNETHM_UART_RX_GPIO
+#define RFNETHM_UART_RX_GPIO 18
+#endif
+#ifndef RFNETHM_RPI_RESET_GPIO
+#define RFNETHM_RPI_RESET_GPIO 7
+#endif
+#define PIN_TX           RFNETHM_UART_TX_GPIO
+#define PIN_RX           RFNETHM_UART_RX_GPIO
 #define PIN_RST_HMMOD    16   // eQ3-Pin 12 (HM-MOD-RPI-PCB)
-#define PIN_RST_RPIRF    7    // eQ3-Pin 35 (RPI-RF-MOD alt)
+#define PIN_RST_RPIRF    RFNETHM_RPI_RESET_GPIO // eQ3-Pin 35 (RPI-RF-MOD alt)
 
 #define UART_NUM         UART_NUM_1
 #define BAUD             115200

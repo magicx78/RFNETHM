@@ -18,6 +18,7 @@
 //   sink_tcp + sink_hbrfeth + webui (ESP_OK gehört zur Konvention)
 
 #include <stdio.h>
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -33,7 +34,9 @@
 #include "source_uart.h"
 #include "sink_debug.h"
 #include "net.h"
+#if !CONFIG_IDF_TARGET_ESP32P4
 #include "improv_glue.h"
+#endif
 #include "sink_tcp.h"
 #include "sink_hbrfeth.h"
 #include "sink_hmuartlgw_legacy.h"
@@ -197,7 +200,11 @@ void app_main(void)
     //
     // bridge_attach_source() ist swap-fähig (siehe bridge.c).
     s_src_uart = source_uart_init();
+#if CONFIG_IDF_TARGET_ESP32P4
+    s_src_usb  = NULL;
+#else
     s_src_usb  = source_usb_init();
+#endif
     if (source_ready(s_src_uart)) {
         bridge_attach_source(s_src_uart);   // typisch noch nicht ready hier
     }
@@ -208,7 +215,9 @@ void app_main(void)
     net_init();
 
     // Improv-Serial-Window — armed 120 s, lauscht auf UART0/CH343P.
+#if !CONFIG_IDF_TARGET_ESP32P4
     improv_init();
+#endif
 
     // Sinks starten — binden erst wenn der STA-Stack eine IP hat,
     // funktionieren also auch wenn Improv die WiFi gerade erst hochzieht.
@@ -292,6 +301,10 @@ void app_main(void)
                  (unsigned)hs.bad_crc,
                  net_is_connected() ? net_ip_str() : "disconnected",
                  net_ssid(),
+#if !CONFIG_IDF_TARGET_ESP32P4
                  improv_is_armed() ? "armed" : "idle");
+#else
+                 "disabled");
+#endif
     }
 }

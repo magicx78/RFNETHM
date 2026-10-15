@@ -289,3 +289,7 @@ CC-BY-NC-SA-4.0-lizenzierten Original-Repo.
 </p>
 
 <p align="center"><sub>RFNETHM ist ein Lab-Projekt aus dem Tostmann-RF-Lab.</sub></p>
+
+## ESP32-P4-Ziel (Waveshare Module DEV-KIT)
+
+Neben dem bestehenden ESP32-S3-Ziel gibt es jetzt einen Ethernet- und RPI-RF-MOD-UART-Port für das Waveshare ESP32-P4-Module-DEV-KIT. Windows-Build-Anleitung und 40-Pin-Belegung stehen in [docs/esp32p4_port.md](docs/esp32p4_port.md). Bitte die dort beschriebene gemeinsame UART-Leitung mit dem CH343 vor dem Aufstecken beachten.

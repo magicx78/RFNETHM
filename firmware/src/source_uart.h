@@ -8,8 +8,8 @@
 
 #include "source.h"
 
-// Initialisiert die UART-Source.  Konfiguriert UART1 (TX=GPIO17,
-// RX=GPIO18 @ 115200 8N1), pulst RST (GPIO16 active-LOW), wartet
+// Initialisiert die UART-Source.  Konfiguriert UART1 (S3: TX=17/RX=18,
+// P4 mit Zwischenadapter: TX=37/RX=6 @ 115200 8N1), pulst RST (RPI-RF: active-HIGH), wartet
 // Boot-Banner ab, schaltet ggf. BL → App via SYSTEM_START_APP, und
 // pumpt danach Modul-RX-Bytes via source.rx_sink in die Bridge.
 //

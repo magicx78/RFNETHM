@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; fill: #18212b; }
+      .title { font-size: 32px; font-weight: 700; }
+      .sub { font-size: 17px; fill: #4a5968; }
+      .label { font-size: 22px; font-weight: 700; }
+      .small { font-size: 16px; }
+      .pinlabel { font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; fill: #fff; }
+      .body { fill: #e9eef3; stroke: #8a99a8; stroke-width: 2; rx: 18; }
+      .pin { fill: #34495e; stroke: #1d2b38; stroke-width: 1.5; }
+      .changed { fill: #ef8a17; stroke: #a65400; stroke-width: 3; }
+      .isolated { fill: #cf3942; stroke: #8f1721; stroke-width: 3; }
+      .rx { fill: #21895a; stroke: #116039; stroke-width: 3; }
+      .wire { fill: none; stroke: #1478c8; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+      .open { fill: none; stroke: #cf3942; stroke-width: 4; stroke-dasharray: 10 8; }
+      .card { fill: #f7f9fb; stroke: #c5d0da; stroke-width: 2; rx: 14; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1478c8"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="900" fill="#ffffff"/>
+  <text x="600" y="54" text-anchor="middle" class="title">RPI-RF-MOD ↔ ESP32-P4: Adapter-Pins</text>
+  <text x="600" y="85" text-anchor="middle" class="sub">Draufsicht auf die beiden 40-Pin-Leisten · Pin 1 jeweils an der markierten Ecke</text>
+
+  <text x="292" y="137" text-anchor="middle" class="label">RPI-RF-MOD-Seite</text>
+  <text x="292" y="162" text-anchor="middle" class="sub">obere Leiste des Adapters</text>
+  <text x="908" y="137" text-anchor="middle" class="label">Waveshare ESP32-P4</text>
+  <text x="908" y="162" text-anchor="middle" class="sub">untere Leiste des Adapters</text>
+
+  <rect x="95" y="180" width="395" height="580" class="body"/>
+  <rect x="710" y="180" width="395" height="580" class="body"/>
+  <path d="M 112 202 L 132 202 L 112 222 Z" fill="#cf3942"/>
+  <path d="M 727 202 L 747 202 L 727 222 Z" fill="#cf3942"/>
+  <text x="141" y="216" class="small" font-weight="700">Pin 1</text>
+  <text x="756" y="216" class="small" font-weight="700">Pin 1</text>
+
+  <!-- Header pins, standard physical numbering: odd on left, even on right. -->
+  <g id="mod-pins">
+    <circle cx="225" cy="242" r="12" class="pin"/><text x="225" y="242" class="pinlabel">1</text><circle cx="355" cy="242" r="12" class="pin"/><text x="355" y="242" class="pinlabel">2</text>
+    <circle cx="225" cy="267" r="12" class="pin"/><text x="225" y="267" class="pinlabel">3</text><circle cx="355" cy="267" r="12" class="pin"/><text x="355" y="267" class="pinlabel">4</text>
+    <circle cx="225" cy="292" r="12" class="pin"/><text x="225" y="292" class="pinlabel">5</text><circle cx="355" cy="292" r="12" class="pin"/><text x="355" y="292" class="pinlabel">6</text>
+    <circle cx="225" cy="317" r="12" class="pin"/><text x="225" y="317" class="pinlabel">7</text><circle cx="355" cy="317" r="12" class="pin"/><text x="355" y="317" class="pinlabel">8</text>
+    <circle cx="225" cy="342" r="12" class="pin"/><text x="225" y="342" class="pinlabel">9</text><circle cx="355" cy="342" r="12" class="changed"/><text x="355" y="342" class="pinlabel">10</text>
+    <circle cx="225" cy="367" r="12" class="pin"/><text x="225" y="367" class="pinlabel">11</text><circle cx="355" cy="367" r="12" class="pin"/><text x="355" y="367" class="pinlabel">12</text>
+    <circle cx="225" cy="392" r="12" class="pin"/><text x="225" y="392" class="pinlabel">13</text><circle cx="355" cy="392" r="12" class="pin"/><text x="355" y="392" class="pinlabel">14</text>
+    <circle cx="225" cy="417" r="12" class="isolated"/><text x="225" y="417" class="pinlabel">15</text><circle cx="355" cy="417" r="12" class="pin"/><text x="355" y="417" class="pinlabel">16</text>
+    <circle cx="225" cy="442" r="12" class="pin"/><text x="225" y="442" class="pinlabel">17</text><circle cx="355" cy="442" r="12" class="pin"/><text x="355" y="442" class="pinlabel">18</text>
+    <circle cx="225" cy="467" r="12" class="pin"/><text x="225" y="467" class="pinlabel">19</text><circle cx="355" cy="467" r="12" class="pin"/><text x="355" y="467" class="pinlabel">20</text>
+    <circle cx="225" cy="492" r="12" class="pin"/><text x="225" y="492" class="pinlabel">21</text><circle cx="355" cy="492" r="12" class="pin"/><text x="355" y="492" class="pinlabel">22</text>
+    <circle cx="225" cy="517" r="12" class="pin"/><text x="225" y="517" class="pinlabel">23</text><circle cx="355" cy="517" r="12" class="pin"/><text x="355" y="517" class="pinlabel">24</text>
+    <circle cx="225" cy="542" r="12" class="pin"/><text x="225" y="542" class="pinlabel">25</text><circle cx="355" cy="542" r="12" class="pin"/><text x="355" y="542" class="pinlabel">26</text>
+    <circle cx="225" cy="567" r="12" class="pin"/><text x="225" y="567" class="pinlabel">27</text><circle cx="355" cy="567" r="12" class="pin"/><text x="355" y="567" class="pinlabel">28</text>
+    <circle cx="225" cy="592" r="12" class="pin"/><text x="225" y="592" class="pinlabel">29</text><circle cx="355" cy="592" r="12" class="pin"/><text x="355" y="592" class="pinlabel">30</text>
+    <circle cx="225" cy="617" r="12" class="pin"/><text x="225" y="617" class="pinlabel">31</text><circle cx="355" cy="617" r="12" class="pin"/><text x="355" y="617" class="pinlabel">32</text>
+    <circle cx="225" cy="642" r="12" class="pin"/><text x="225" y="642" class="pinlabel">33</text><circle cx="355" cy="642" r="12" class="pin"/><text x="355" y="642" class="pinlabel">34</text>
+    <circle cx="225" cy="667" r="12" class="pin"/><text x="225" y="667" class="pinlabel">35</text><circle cx="355" cy="667" r="12" class="pin"/><text x="355" y="667" class="pinlabel">36</text>
+    <circle cx="225" cy="692" r="12" class="pin"/><text x="225" y="692" class="pinlabel">37</text><circle cx="355" cy="692" r="12" class="pin"/><text x="355" y="692" class="pinlabel">38</text>
+    <circle cx="225" cy="717" r="12" class="pin"/><text x="225" y="717" class="pinlabel">39</text><circle cx="355" cy="717" r="12" class="pin"/><text x="355" y="717" class="pinlabel">40</text>
+  </g>
+  <g id="p4-pins">
+    <circle cx="840" cy="242" r="12" class="pin"/><text x="840" y="242" class="pinlabel">1</text><circle cx="970" cy="242" r="12" class="pin"/><text x="970" y="242" class="pinlabel">2</text>
+    <circle cx="840" cy="267" r="12" class="pin"/><text x="840" y="267" class="pinlabel">3</text><circle cx="970" cy="267" r="12" class="pin"/><text x="970" y="267" class="pinlabel">4</text>
+    <circle cx="840" cy="292" r="12" class="pin"/><text x="840" y="292" class="pinlabel">5</text><circle cx="970" cy="292" r="12" class="pin"/><text x="970" y="292" class="pinlabel">6</text>
+    <circle cx="840" cy="317" r="12" class="pin"/><text x="840" y="317" class="pinlabel">7</text><circle cx="970" cy="317" r="12" class="pin"/><text x="970" y="317" class="pinlabel">8</text>
+    <circle cx="840" cy="342" r="12" class="pin"/><text x="840" y="342" class="pinlabel">9</text><circle cx="970" cy="342" r="12" class="isolated"/><text x="970" y="342" class="pinlabel">10</text>
+    <circle cx="840" cy="367" r="12" class="pin"/><text x="840" y="367" class="pinlabel">11</text><circle cx="970" cy="367" r="12" class="pin"/><text x="970" y="367" class="pinlabel">12</text>
+    <circle cx="840" cy="392" r="12" class="pin"/><text x="840" y="392" class="pinlabel">13</text><circle cx="970" cy="392" r="12" class="pin"/><text x="970" y="392" class="pinlabel">14</text>
+    <circle cx="840" cy="417" r="12" class="rx"/><text x="840" y="417" class="pinlabel">15</text><circle cx="970" cy="417" r="12" class="pin"/><text x="970" y="417" class="pinlabel">16</text>
+    <circle cx="840" cy="442" r="12" class="pin"/><text x="840" y="442" class="pinlabel">17</text><circle cx="970" cy="442" r="12" class="pin"/><text x="970" y="442" class="pinlabel">18</text>
+    <circle cx="840" cy="467" r="12" class="pin"/><text x="840" y="467" class="pinlabel">19</text><circle cx="970" cy="467" r="12" class="pin"/><text x="970" y="467" class="pinlabel">20</text>
+    <circle cx="840" cy="492" r="12" class="pin"/><text x="840" y="492" class="pinlabel">21</text><circle cx="970" cy="492" r="12" class="pin"/><text x="970" y="492" class="pinlabel">22</text>
+    <circle cx="840" cy="517" r="12" class="pin"/><text x="840" y="517" class="pinlabel">23</text><circle cx="970" cy="517" r="12" class="pin"/><text x="970" y="517" class="pinlabel">24</text>
+    <circle cx="840" cy="542" r="12" class="pin"/><text x="840" y="542" class="pinlabel">25</text><circle cx="970" cy="542" r="12" class="pin"/><text x="970" y="542" class="pinlabel">26</text>
+    <circle cx="840" cy="567" r="12" class="pin"/><text x="840" y="567" class="pinlabel">27</text><circle cx="970" cy="567" r="12" class="pin"/><text x="970" y="567" class="pinlabel">28</text>
+    <circle cx="840" cy="592" r="12" class="pin"/><text x="840" y="592" class="pinlabel">29</text><circle cx="970" cy="592" r="12" class="pin"/><text x="970" y="592" class="pinlabel">30</text>
+    <circle cx="840" cy="617" r="12" class="pin"/><text x="840" y="617" class="pinlabel">31</text><circle cx="970" cy="617" r="12" class="pin"/><text x="970" y="617" class="pinlabel">32</text>
+    <circle cx="840" cy="642" r="12" class="pin"/><text x="840" y="642" class="pinlabel">33</text><circle cx="970" cy="642" r="12" class="pin"/><text x="970" y="642" class="pinlabel">34</text>
+    <circle cx="840" cy="667" r="12" class="pin"/><text x="840" y="667" class="pinlabel">35</text><circle cx="970" cy="667" r="12" class="pin"/><text x="970" y="667" class="pinlabel">36</text>
+    <circle cx="840" cy="692" r="12" class="pin"/><text x="840" y="692" class="pinlabel">37</text><circle cx="970" cy="692" r="12" class="pin"/><text x="970" y="692" class="pinlabel">38</text>
+    <circle cx="840" cy="717" r="12" class="pin"/><text x="840" y="717" class="pinlabel">39</text><circle cx="970" cy="717" r="12" class="pin"/><text x="970" y="717" class="pinlabel">40</text>
+  </g>
+
+  <!-- Required signal route: module TX at pin 10 goes to P4 GPIO6 at pin 15. -->
+  <path d="M 367 342 C 520 342, 560 417, 828 417" class="wire" marker-end="url(#arrow)"/>
+  <text x="595" y="321" text-anchor="middle" class="small" fill="#1478c8" font-weight="700">Modul-Pin 10 (TX) → P4-Pin 15 (GPIO6 / RX)</text>
+  <!-- The direct pin-10 connection is deliberately open. -->
+  <path d="M 367 342 C 520 342, 600 342, 958 342" class="open"/>
+  <circle cx="665" cy="342" r="21" fill="#fff" stroke="#cf3942" stroke-width="3"/>
+  <path d="M 653 330 L 677 354 M 677 330 L 653 354" stroke="#cf3942" stroke-width="5"/>
+
+  <rect x="75" y="790" width="1050" height="75" class="card"/>
+  <circle cx="105" cy="817" r="12" class="changed"/><text x="128" y="823" class="small">Orange: Modul-Pin 10 (TX) umleiten</text>
+  <circle cx="420" cy="817" r="12" class="isolated"/><text x="443" y="823" class="small">Rot: direkte Verbindung / Kontakt offen</text>
+  <circle cx="795" cy="817" r="12" class="rx"/><text x="818" y="823" class="small">Grün: GPIO6, UART-Empfang</text>
+  <text x="600" y="851" text-anchor="middle" class="small" font-weight="700">Pin 15 auf der Modul-Seite isolieren. Pin 8 (TX) und Pin 35 (Reset) bleiben durchverbunden.</text>
+</svg>

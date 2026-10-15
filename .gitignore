@@ -4,8 +4,10 @@
 .cache/
 __pycache__/
 build/
+firmware/build-esp32p4/
 sdkconfig*
 !sdkconfig.defaults
+!sdkconfig.p4.defaults
 managed_components/
 dependencies.lock
 compile_commands.json

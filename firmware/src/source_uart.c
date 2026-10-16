@@ -33,6 +33,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
+#include "freertos/portmacro.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -75,6 +76,7 @@ static struct {
     source_t          source;
     QueueHandle_t     boot_q;
     SemaphoreHandle_t tx_mtx;
+    SemaphoreHandle_t lifecycle_mtx;
     hmu_decoder_t     decoder;
     bool              ready;
     bool              module_present;
@@ -84,6 +86,10 @@ static struct {
     char              app_tag[32];
     char              describe_buf[80];
 } S;
+
+// Keep HB-RF-ETH reconnect resets coalesced while one recovery is pending.
+static portMUX_TYPE s_recovery_mux = portMUX_INITIALIZER_UNLOCKED;
+static bool s_recovery_pending;
 
 // Flash-Lock auto-release nach 5 Min Inaktivität — schützt vor
 // vergessenen Flash-Modi.
@@ -473,6 +479,7 @@ static bool op_ready(source_t *src) { (void)src; return S.ready; }
 static esp_err_t op_reset(source_t *src)
 {
     (void)src;
+    xSemaphoreTake(S.lifecycle_mtx, portMAX_DELAY);
     S.ready     = false;
     S.boot_done = false;
     // boot_probe() macht eigene Reset-Sequenz mit Polaritäts-Discovery
@@ -481,8 +488,10 @@ static esp_err_t op_reset(source_t *src)
     if (ok) {
         S.ready     = true;
         S.boot_done = true;
+        xSemaphoreGive(S.lifecycle_mtx);
         return ESP_OK;
     }
+    xSemaphoreGive(S.lifecycle_mtx);
     return ESP_FAIL;
 }
 
@@ -512,6 +521,7 @@ static void init_task(void *arg)
     // 300 ms Settle nach UART-Setup
     vTaskDelay(pdMS_TO_TICKS(300));
 
+    xSemaphoreTake(S.lifecycle_mtx, portMAX_DELAY);
     ESP_LOGI(TAG, "starting boot probe (HM-MOD-RPI-PCB hypothesis):");
     uint8_t cnt = 0x01;
     if (boot_probe(&cnt)) {
@@ -521,6 +531,7 @@ static void init_task(void *arg)
     } else {
         ESP_LOGE(TAG, "Boot-Probe fehlgeschlagen — Source bleibt nicht-ready");
     }
+    xSemaphoreGive(S.lifecycle_mtx);
 
     // Pump-Task läuft schon (uart_rx_task wurde in source_uart_init gestartet),
     // boot_done==true gibt jetzt den Fanout frei.
@@ -534,6 +545,11 @@ source_t *source_uart_init(void)
     memset(&S, 0, sizeof(S));
     S.boot_q          = xQueueCreate(8, sizeof(boot_event_t));
     S.tx_mtx          = xSemaphoreCreateMutex();
+    S.lifecycle_mtx   = xSemaphoreCreateMutex();
+    if (!S.boot_q || !S.tx_mtx || !S.lifecycle_mtx) {
+        ESP_LOGE(TAG, "UART synchronization allocation failed");
+        return NULL;
+    }
     S.source.ops      = &s_uart_ops;
     S.source.short_id = "uart";
 
@@ -581,43 +597,54 @@ bool source_uart_is_flash_locked(void)
     return S.flash_lock;
 }
 
-esp_err_t source_uart_pulse_rst_only(char *tag_out, size_t tag_cap)
+static void reconnect_recovery_task(void *arg)
 {
-    if (tag_out && tag_cap) tag_out[0] = '\0';
+    (void)arg;
+    xSemaphoreTake(S.lifecycle_mtx, portMAX_DELAY);
 
-    ESP_LOGW(TAG, "==== pulse_rst_only — HW-Layer-Primitive (kein flash_lock) ====");
-
-    // Modul-State markieren: nach Pulse ist's im BL, aber app_tag NICHT
-    // pre-emptiv leeren — wenn der Banner-wait timeout schlägt (z.B.
-    // unter Last bei vielen cmd=4 in Folge), behalten wir den letzten
-    // bekannten Tag statt einer leeren Anzeige.  Sonst kumulieren
-    // failed Probes zu uart.tag=='' + boot=False obwohl das Modul real
-    // weiterläuft (Bug-Symptom 2026-05-11).
-    S.boot_done = false;
-    // S.ready BLEIBT true — UART-TX-Pfad bleibt offen, bmcond/multimacd
-    // kann sofort weiterarbeiten ohne erst auf Probe-Cycle zu warten.
-
-    boot_event_t ev = { .klass = BOOT_TAG_NONE };
-    bool got = reset_and_get_banner(&ev);
-
-    boot_event_t extra;
-    while (wait_boot_event(&extra, pdMS_TO_TICKS(200))) {
-        if (ev.klass == BOOT_TAG_UNKNOWN || ev.klass == BOOT_TAG_NONE) ev = extra;
+    if (S.flash_lock) {
+        ESP_LOGW(TAG, "HB-RF-ETH reconnect reset ignored while flash lock is active");
+    } else {
+        ESP_LOGW(TAG, "HB-RF-ETH reconnect reset: restarting full UART boot probe");
+        S.ready     = false;
+        S.boot_done = false;
+        uint8_t cnt = 0x01;
+        if (boot_probe(&cnt)) {
+            S.boot_done = true;
+            S.ready     = true;
+            ESP_LOGW(TAG, "UART-Source recovered after HB-RF-ETH reset ('%s')",
+                     S.app_tag);
+        } else {
+            ESP_LOGE(TAG, "UART recovery after HB-RF-ETH reset failed; source remains not-ready");
+        }
     }
 
-    if (!got) {
-        ESP_LOGE(TAG, "pulse_rst_only: kein Banner-Tag empfangen — app_tag '%s' bleibt erhalten",
-                 S.app_tag);
-        return ESP_FAIL;
-    }
+    xSemaphoreGive(S.lifecycle_mtx);
+    taskENTER_CRITICAL(&s_recovery_mux);
+    s_recovery_pending = false;
+    taskEXIT_CRITICAL(&s_recovery_mux);
+    vTaskDelete(NULL);
+}
 
-    snprintf(S.app_tag, sizeof(S.app_tag), "%s", ev.tag);
-    if (tag_out && tag_cap) {
-        snprintf(tag_out, tag_cap, "%s", ev.tag);
+esp_err_t source_uart_recover_after_hbrfeth_reset(void)
+{
+    taskENTER_CRITICAL(&s_recovery_mux);
+    if (s_recovery_pending) {
+        taskEXIT_CRITICAL(&s_recovery_mux);
+        ESP_LOGI(TAG, "HB-RF-ETH reconnect recovery already pending");
+        return ESP_OK;
     }
-    ESP_LOGW(TAG, "pulse_rst_only done — Tag '%s' (%s)", ev.tag,
-             ev.klass == BOOT_TAG_BL ? "BL" :
-             ev.klass == BOOT_TAG_APP ? "App" : "?");
+    s_recovery_pending = true;
+    taskEXIT_CRITICAL(&s_recovery_mux);
+
+    if (xTaskCreate(reconnect_recovery_task, "src-uart-recover", 4096,
+                    NULL, 4, NULL) != pdPASS) {
+        taskENTER_CRITICAL(&s_recovery_mux);
+        s_recovery_pending = false;
+        taskEXIT_CRITICAL(&s_recovery_mux);
+        ESP_LOGE(TAG, "could not schedule UART recovery task");
+        return ESP_ERR_NO_MEM;
+    }
     return ESP_OK;
 }
 
@@ -625,6 +652,8 @@ esp_err_t source_uart_reset_for_flash(bool hold_in_bl,
                                       char *tag_out, size_t tag_cap)
 {
     if (tag_out && tag_cap) tag_out[0] = '\0';
+    if (!S.lifecycle_mtx) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(S.lifecycle_mtx, portMAX_DELAY);
 
     if (hold_in_bl) {
         ESP_LOGW(TAG, "==== reset_for_flash(hold_in_bl=true) — Modul wird im BL gehalten ====");
@@ -644,6 +673,7 @@ esp_err_t source_uart_reset_for_flash(bool hold_in_bl,
         if (!got) {
             ESP_LOGE(TAG, "reset_for_flash: kein Banner-Tag empfangen");
             S.flash_lock = false;
+            xSemaphoreGive(S.lifecycle_mtx);
             return ESP_FAIL;
         }
 
@@ -660,6 +690,7 @@ esp_err_t source_uart_reset_for_flash(bool hold_in_bl,
         ESP_LOGW(TAG, "==== Flash-Lock aktiv — Tag '%s' (%s) ====", ev.tag,
                  ev.klass == BOOT_TAG_BL ? "BL" :
                  ev.klass == BOOT_TAG_APP ? "App" : "?");
+        xSemaphoreGive(S.lifecycle_mtx);
         return ESP_OK;
     }
 
@@ -675,7 +706,9 @@ esp_err_t source_uart_reset_for_flash(bool hold_in_bl,
         S.ready     = true;
         S.boot_done = true;
         if (tag_out && tag_cap) snprintf(tag_out, tag_cap, "%s", S.app_tag);
+        xSemaphoreGive(S.lifecycle_mtx);
         return ESP_OK;
     }
+    xSemaphoreGive(S.lifecycle_mtx);
     return ESP_FAIL;
 }

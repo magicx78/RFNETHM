@@ -51,20 +51,10 @@ void source_uart_get_stats(source_uart_stats_t *out);
 esp_err_t source_uart_reset_for_flash(bool hold_in_bl,
                                       char *tag_out, size_t tag_cap);
 
-// HW-Layer-Primitive: Pulse RST mit gespeicherter Polarität, Banner
-// abwarten, Tag merken.  Setzt **kein** flash_lock — ist bewusst so weil
-// piVCCU's hb_rf_eth_send_reset (cmd=4) genau ein RST-Pulse-Primitive
-// ist und nicht impliziert dass der Caller flashen will.  Application-
-// Layer-Flash-Lock geht über source_uart_reset_for_flash + HTTP-API.
-//
-// Wirkung auf interne State:
-//   - S.ready bleibt true (UART-TX-Pfad bleibt offen)
-//   - S.boot_done = false (Modul ist nach Pulse im BL)
-//   - S.app_tag wird auf BL-Tag gesetzt (z.B. "Co_CPU_BL")
-//   - S.flash_lock unverändert (separat via reset_for_flash)
-//
-// Verwendet von sink_hbrfeth.c im T_RESET (cmd=4)-Handler.
-esp_err_t source_uart_pulse_rst_only(char *tag_out, size_t tag_cap);
+// HB-RF-ETH T_RESET (cmd=4) wird von OpenCCU bei jeder Verbindung gesendet.
+// Die vollständige Reset-/Boot-Probe läuft asynchron, damit Keepalives weiter
+// beantwortet werden. Bei gesetztem Flash-Lock bleibt das Modul im Bootloader.
+esp_err_t source_uart_recover_after_hbrfeth_reset(void);
 
 // Returns true wenn aktuell im Flash-Mode (Modul im BL gehalten).
 bool source_uart_is_flash_locked(void);

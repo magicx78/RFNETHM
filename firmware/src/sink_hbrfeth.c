@@ -261,20 +261,20 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
         // (würde jeden normalen Container-Start 5 Min im flash-Modus
         // sticken; user-Argument 2026-05-08).
         //
-        // Application-Layer-Flash-Lock geht über den expliziten
-        // POST /api/source/uart/reset {"hold_in_bl":true}-Endpoint;
-        // bmcond's transport_rfnethm (Iter 6) acquired den dort
-        // explizit, dann erst cmd=4 als idempotent-RST.
+        // OpenCCU may reconnect after a gateway change while RFNETHM remains
+        // running. A bare RST would leave the RPI-RF-MOD in its bootloader,
+        // so schedule the same full BL→App probe used during ESP startup.
+        // Keep this asynchronous: the probe can take longer than one
+        // HB-RF-ETH keepalive interval.
         //
         // Auf USB-Source ist cmd=4 ein Noop (HmIP-RFUSB-Stick hat keinen
         // am ESP32 schaltbaren RST-Pin, siehe pcb_basics_must_have).
         {
-            char tag[32] = {0};
-            esp_err_t r = source_uart_pulse_rst_only(tag, sizeof(tag));
+            esp_err_t r = source_uart_recover_after_hbrfeth_reset();
             if (r == ESP_OK) {
-                ESP_LOGW(TAG, "T_RESET (cmd=4): RST-Pulse done, Banner-Tag '%s'", tag);
+                ESP_LOGW(TAG, "T_RESET (cmd=4): UART recovery scheduled");
             } else {
-                ESP_LOGW(TAG, "T_RESET (cmd=4): pulse_rst_only → %s "
+                ESP_LOGW(TAG, "T_RESET (cmd=4): UART recovery scheduling → %s "
                               "(kein UART-Modul gesteckt? USB-only-Setup?)",
                          esp_err_to_name(r));
             }

@@ -22,14 +22,26 @@ cd firmware
 | 2 oder 4 | 2 oder 4 | 5 V Versorgung |
 | 6 | 6 | GND |
 | 8 | GPIO37 | P4 UART TX → Modul RX |
-| 10 | via Zwischenadapter zu GPIO6 | Modul TX → P4 UART RX |
-| 15 | GPIO6 | UART-RX-Eingang des P4 (Zwischenadapter-Verbindung) |
+| 10 | per Drahtbrücke zu P4-Pin 15 | Modul TX → P4 UART RX |
+| 15 | GPIO6 | UART-RX-Eingang des P4; Modul-Pin 15 bleibt isoliert |
 | 35 | GPIO53 | Reset, aktiv HIGH |
 
 Die Firmware konfiguriert UART1 mit 115200 Baud. Die Belegung ist für den Header des DEV-KIT bestimmt.
 
-## Vor dem Aufstecken beachten
+## Direkt aufstecken: zwei Pins anpassen, eine Drahtbrücke löten
 
-Der Waveshare-Schaltplan verbindet GPIO37/38 direkt mit dem CH343P-USB-UART. Der Zwischenadapter führt deshalb nur den Modul-TX-Kontakt von Header-Pin 10 auf GPIO6 an Header-Pin 15. Die direkte Verbindung von Modul-Pin 10 zu P4-Pin 10 bleibt offen; Modul-Pin 15 bleibt auf der Oberseite ebenfalls getrennt. Die übrigen Header-Kontakte werden durchverbunden. GPIO37 bleibt UART-TX auf Pin 8; Reset bleibt GPIO53 auf Pin 35. Damit läuft der Radio-RX auf GPIO6 und die CH343-TX-Leitung ist vom Funkmodul getrennt. Der Adapter ist nötig, bevor das Funkmodul aufgesteckt wird.
+Ein Zwischenadapter ist nicht nötig. Am **RPI-RF-MOD** nur diese zwei Pins
+vom Kontakt zum P4-Header weg umbiegen:
 
-![Draufsicht und Adapterverdrahtung der beiden 40-Pin-Header](esp32p4-header-adapter.svg)
+1. **Modul-Pin 10 (UART-TX):** vom P4-Pin 10 fernhalten und mit einer kurzen
+   isolierten Drahtbrücke an **P4-Pin 15 (GPIO6 / UART-RX)** anlöten.
+2. **Modul-Pin 15:** ebenfalls so umbiegen, dass er **P4-Pin 15** nicht
+   berührt. Dadurch bleibt GPIO6 ausschließlich mit Modul-Pin 10 verbunden.
+
+Danach kann das RPI-RF-MOD direkt auf den 40-Pin-Header des P4-Boards gesteckt
+werden. **Alle übrigen Pins bleiben unverändert und werden direkt aufgesteckt.**
+P4-Pin 8 / GPIO37 bleibt UART-TX zum Modul; Reset bleibt P4-Pin 35 / GPIO53.
+Beim Umbiegen und Löten Board und Funkmodul vollständig von USB und Netzteil
+trennen.
+
+![Pinzählung und direkte Zwei-Pin-Anpassung zwischen RPI-RF-MOD und ESP32-P4](esp32p4-header-adapter.svg)

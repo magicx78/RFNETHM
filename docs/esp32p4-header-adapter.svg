@@ -22,13 +22,13 @@
   </defs>
 
   <rect width="1200" height="900" fill="#ffffff"/>
-  <text x="600" y="54" text-anchor="middle" class="title">RPI-RF-MOD ↔ ESP32-P4: Adapter-Pins</text>
-  <text x="600" y="85" text-anchor="middle" class="sub">Draufsicht auf die beiden 40-Pin-Leisten · Pin 1 jeweils an der markierten Ecke</text>
+  <text x="600" y="54" text-anchor="middle" class="title">RPI-RF-MOD direkt auf ESP32-P4: 2 Pins anpassen</text>
+  <text x="600" y="85" text-anchor="middle" class="sub">Pin 10 umlöten zu P4-Pin 15 · Modul-Pin 15 isolieren · übrige Pins direkt stecken</text>
 
   <text x="292" y="137" text-anchor="middle" class="label">RPI-RF-MOD-Seite</text>
-  <text x="292" y="162" text-anchor="middle" class="sub">obere Leiste des Adapters</text>
+  <text x="292" y="162" text-anchor="middle" class="sub">RPI-RF-MOD 40-Pin-Header</text>
   <text x="908" y="137" text-anchor="middle" class="label">Waveshare ESP32-P4</text>
-  <text x="908" y="162" text-anchor="middle" class="sub">untere Leiste des Adapters</text>
+  <text x="908" y="162" text-anchor="middle" class="sub">Waveshare P4 40-Pin-Header</text>
 
   <rect x="95" y="180" width="395" height="580" class="body"/>
   <rect x="710" y="180" width="395" height="580" class="body"/>
@@ -92,8 +92,8 @@
   <path d="M 653 330 L 677 354 M 677 330 L 653 354" stroke="#cf3942" stroke-width="5"/>
 
   <rect x="75" y="790" width="1050" height="75" class="card"/>
-  <circle cx="105" cy="817" r="12" class="changed"/><text x="128" y="823" class="small">Orange: Modul-Pin 10 (TX) umleiten</text>
-  <circle cx="420" cy="817" r="12" class="isolated"/><text x="443" y="823" class="small">Rot: direkte Verbindung / Kontakt offen</text>
+  <circle cx="105" cy="817" r="12" class="changed"/><text x="128" y="823" class="small">Orange: Modul-Pin 10 (TX) per Draht zu P4-Pin 15</text>
+  <circle cx="420" cy="817" r="12" class="isolated"/><text x="443" y="823" class="small">Rot: Modul-Pins 10/15 vom Headerkontakt weg biegen</text>
   <circle cx="795" cy="817" r="12" class="rx"/><text x="818" y="823" class="small">Grün: GPIO6, UART-Empfang</text>
-  <text x="600" y="851" text-anchor="middle" class="small" font-weight="700">Pin 15 auf der Modul-Seite isolieren. Pin 8 (TX) und Pin 35 (Reset) bleiben durchverbunden.</text>
+  <text x="600" y="851" text-anchor="middle" class="small" font-weight="700">Modul-Pins 10 und 15 anpassen; Modul-Pin 10 an GPIO6/P4-Pin 15 löten. Pin 8 und 35 bleiben direkt.</text>
 </svg>

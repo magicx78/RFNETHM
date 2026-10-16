@@ -11,11 +11,20 @@ ESP32-P4-Module-DEV-KIT**. Dieses verbindet ein **RPI-RF-MOD** über den
 FHEM oder Homegear über LAN erreichbar, ohne einen Raspberry Pi am
 Funkstandort zu benötigen.
 
+> [!IMPORTANT]
+> **RPI-RF-MOD direkt auf das ESP32-P4-Board stecken – ohne Zwischenadapter.**
+> Dafür nur **zwei Pins am RPI-RF-MOD umbiegen** und eine kurze Drahtbrücke
+> anlöten: Modul-Pin **10 (UART-TX)** vom Kontakt zu P4-Pin 10 wegführen und
+> mit **P4-Pin 15 (GPIO6 / UART-RX)** verbinden; Modul-Pin **15** so umbiegen,
+> dass er P4-Pin 15 nicht berührt. Die übrigen Header-Pins können direkt
+> aufgesteckt werden. Eine kleine, schnell erledigte Anpassung – Pinzählung
+> und Skizze findest Du in der
+> [P4-Anschlussdokumentation](docs/esp32p4_port.md).
+
 Der 40-Pin-Header des P4-Boards hat eine Raspberry-Pi-ähnliche mechanische
-Anordnung. **Die GPIO-Belegung ist nicht 1:1 kompatibel.** Für das RPI-RF-MOD
-ist der in der [P4-Anschlussdokumentation](docs/esp32p4_port.md) gezeigte
-Zwischenadapter erforderlich; bitte das Modul nicht ohne diesen Adapter
-aufstecken.
+Anordnung, **die GPIO-Belegung ist aber nicht 1:1 kompatibel**. Die zwei
+genannten Pins müssen vor dem Aufstecken angepasst werden. Board und Modul
+beim Biegen und Löten vollständig von der Stromversorgung trennen.
 
 Das ursprüngliche **ESP32-S3-Ziel** bleibt im Repository enthalten. Es nutzt
 andere Hardware und unterstützt unter anderem den HmIP-RFUSB-Stick. Die
@@ -79,15 +88,14 @@ Mehrfach-Schreiber abgesichert (erster Sender bekommt den Stick für
 - **Waveshare ESP32-P4-Module-DEV-KIT** mit RJ45-Buchse und IP101-Ethernet.
   Die P4-Firmware bezieht die IP-Adresse per DHCP über Ethernet; eine
   WLAN-Konfiguration ist für dieses Ziel nicht erforderlich.
-- **RPI-RF-MOD** auf dem 40-Pin-Header. Die Header-Geometrie ähnelt der eines
-  Raspberry Pi, die elektrischen Signale sind aber nicht automatisch
-  kompatibel. Verwende den in der
-  [P4-Anschlussdokumentation](docs/esp32p4_port.md) beschriebenen
-  Zwischenadapter. Er trennt die kollidierenden Leitungen zum CH343-USB-UART
-  und führt UART-TX/RX sowie Reset auf die vorgesehenen P4-GPIOs.
+- **RPI-RF-MOD** auf dem 40-Pin-Header. Kein Zwischenadapter nötig: Modul-Pin
+  10 und 15 werden wie oben beschrieben umgebogen; eine Drahtbrücke führt
+  Modul-Pin 10 (TX) zu P4-Pin 15 (GPIO6 / RX). Alle anderen Pins bleiben
+  direkt aufgesteckt. Die [P4-Anschlussdokumentation](docs/esp32p4_port.md)
+  zeigt Pinzählung und Verdrahtung.
 - **5-V-Versorgung** für das DEV-KIT über die Hohlbuchse gemäß
   Waveshare-Anleitung. Das RPI-RF-MOD benötigt zusätzlich 5 V auf Header-Pin
-  2 oder 4; der Adapter führt diese Versorgung durch. Für den normalen
+  2 oder 4. Für den normalen
   Betrieb Ethernet und die Hohlbuchsenversorgung verwenden; USB nach dem
   Flashen abziehen und nicht als parallele Stromversorgung verwenden.
 - **LAN-Kabel** zum Router oder Switch mit DHCP.
@@ -119,8 +127,8 @@ cd firmware
 5-V-Versorgung über die Hohlbuchse wie in der Waveshare-Anleitung verwenden;
 das RPI-RF-MOD benötigt 5 V auf Header-Pin 2 oder 4. Das Board per RJ45 an
 ein Netzwerk mit DHCP anschließen. Die vom Router vergebene IP-Adresse
-öffnet das WebUI. Die genaue Header-Belegung und der notwendige
-Zwischenadapter stehen in [docs/esp32p4_port.md](docs/esp32p4_port.md).
+öffnet das WebUI. Die genaue Header-Belegung und die einfache
+Zwei-Pin-Anpassung stehen in [docs/esp32p4_port.md](docs/esp32p4_port.md).
 
 Danach die Server-Seite konfigurieren:
    - piVCCU / RaspberryMatic: `hb_rf_eth.ko` mit der IP des RFNETHM laden
@@ -289,7 +297,7 @@ aus dessen Bestandsplattform-Dokumentation.
 ## Mehr lesen
 
 - [`docs/esp32p4_port.md`](docs/esp32p4_port.md) — P4-Board, RJ45,
-  Header-Belegung und erforderlicher Zwischenadapter
+  Header-Belegung und direkte Zwei-Pin-Anpassung
 - [`docs/intro.md`](docs/intro.md) — ursprüngliches ESP32-S3-Ziel
 - [`docs/breadboard_wiring.md`](docs/breadboard_wiring.md) — Verkabelung
   des S3-Devkits

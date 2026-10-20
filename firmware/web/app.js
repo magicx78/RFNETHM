@@ -169,6 +169,7 @@ async function tick() {
     $("st-hb-tx").textContent      = j.hb.tx;
     $("st-hb-ka").textContent      = j.hb.ka_timeouts;
     $("st-hb-crc").textContent     = j.hb.bad_crc;
+    if (j.led) renderLed(j.led);
 
     // Raw-TCP tile
     $("st-tcp-port").textContent    = j.tcp.port;
@@ -537,6 +538,48 @@ document.querySelectorAll('input[name=tx-master]').forEach(r => {
   r.addEventListener("change", (ev) => {
     if (ev.target.checked) postTxMaster(ev.target.value);
   });
+});
+
+// ============ RPI-RF-MOD LED (HB-RF-ETH Typ 3) ============
+// Drei Punkte in der HB-RF-ETH-Kachel spiegeln die RGB-LED des Funkmoduls.
+// Klick auf einen Punkt toggelt die Farbe per POST /api/led (Hardware-Test).
+// OpenCCU schreibt die LED laufend neu, deshalb hält die Firmware die
+// Testfarbe 5 s (hold_ms) und wendet danach das letzte CCU-Kommando an.
+let __led_state = { r: false, g: false, b: false };
+const LED_SRC_NAMES = { boot: "Boot", local: "lokal", host: "CCU", api: "Test" };
+function renderLed(led) {
+  if (window.__led_pending) return;
+  __led_state = { r: !!led.r, g: !!led.g, b: !!led.b };
+  const dots = $("st-hb-led");
+  dots.classList.toggle("led-disabled", !led.enabled);
+  dots.querySelectorAll(".led-dot").forEach(d => d.classList.toggle("on", !!led[d.dataset.led]));
+  $("st-hb-led-src").textContent = led.enabled
+    ? (LED_SRC_NAMES[led.src] || led.src) + (led.hold ? " (Hold)" : "") + " · " + led.host_cmds + " CCU-Cmds"
+    : "nicht beschaltet";
+}
+async function postLed(next) {
+  window.__led_pending = true;
+  try {
+    const r = await fetch("/api/led", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(Object.assign({ hold_ms: 5000 }, next))
+    });
+    if (!r.ok) console.warn("led POST failed:", r.status);
+  } catch (e) {
+    console.warn("led POST error:", e);
+  } finally {
+    setTimeout(() => { window.__led_pending = false; tick(); }, 300);
+  }
+}
+$("st-hb-led").addEventListener("click", (ev) => {
+  const dot = ev.target.closest(".led-dot");
+  if (!dot || $("st-hb-led").classList.contains("led-disabled")) return;
+  const next = Object.assign({}, __led_state);
+  next[dot.dataset.led] = !next[dot.dataset.led];
+  __led_state = next;
+  dot.classList.toggle("on", next[dot.dataset.led]);
+  postLed(next);
 });
 
 // Initial + interval

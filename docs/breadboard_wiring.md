@@ -34,9 +34,9 @@ und User-Verifikation am RPi-RF-MOD-Pinout.
 | 12 | BCM18 | **HM_RST active-LOW** + C2CK | MCU → Modul | HM-MOD-RPI-PCB (bei RPI-RF-MOD nicht beschaltet) |
 | 32 | BCM12 | **HM_BTN** | MCU → Modul | RPI-RF-MOD |
 | 35 | BCM19 | **HM_RST active-HIGH** (alt-Reset) | MCU → Modul | RPI-RF-MOD |
-| 36 | BCM16 | **HM_RED** (LED) | Modul → MCU | RPI-RF-MOD |
-| 38 | BCM20 | **HM_GREEN** (LED) | Modul → MCU | RPI-RF-MOD |
-| 40 | BCM21 | **HM_BLUE** (LED) | Modul → MCU | RPI-RF-MOD |
+| 36 | BCM16 | **HM_RED** (LED, 1 = an) | MCU → Modul | RPI-RF-MOD |
+| 38 | BCM20 | **HM_GREEN** (LED, 1 = an) | MCU → Modul | RPI-RF-MOD |
+| 40 | BCM21 | **HM_BLUE** (LED, 1 = an) | MCU → Modul | RPI-RF-MOD |
 
 **Reset-Polaritäten — empirisch verifiziert:**
 
@@ -88,9 +88,9 @@ GPIO-Auswahl beachtet:
 | `GPIO16` | J1/9 | **12** | **HM_RST** (HM-MOD-RPI-PCB) | GPIO out, active-low |
 | `GPIO7`  | J1/7 | **35** | **HM_RST_INV** (RPI-RF-MOD alt-Reset) | GPIO out, active-low |
 | `GPIO15` | J1/8 | **32** | HM_BTN | GPIO out (push) |
-| `GPIO4`  | J1/4 | **36** | HM_RED | GPIO in (LED-readback) |
-| `GPIO5`  | J1/5 | **38** | HM_GREEN | GPIO in |
-| `GPIO6`  | J1/6 | **40** | HM_BLUE | GPIO in |
+| `GPIO4`  | J1/4 | **36** | HM_RED | GPIO out (LED, 1 = an; `hm_led.c`) |
+| `GPIO5`  | J1/5 | **38** | HM_GREEN | GPIO out |
+| `GPIO6`  | J1/6 | **40** | HM_BLUE | GPIO out |
 | `3V3` | J1/1 | 1 | Versorgung | YD-LDO CJ6107A33 ≥ 600 mA |
 | `GND` | J1/22 | 6, 9, … | GND-Stern | mehrere Punkte |
 

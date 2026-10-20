@@ -9,6 +9,7 @@
 #include "hmu_frame.h"
 #include "net.h"
 #include "source_uart.h"
+#include "hm_led.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -125,6 +126,35 @@ static void client_disconnect(hb_client_t *c)
     memset(c, 0, sizeof(*c));
     S.stats.active_clients--;
     S.stats.total_disconnects++;
+}
+
+// Lokale Anzeige auf der RPI-RF-MOD-LED.  Referenz (A.R.s HB-RF-ETH-
+// Firmware, rawuartudplistener.cpp): gelb bei CONNECT, aus bei DISCONNECT,
+// rot bei Keepalive-Timeout, danach exakt das, was der Host per Typ 3
+// schickt.  Wir verfeinern das um den StartConn-Zustand:
+//   kein Client            → aus; nach Keepalive-Timeout rot
+//   Client ohne StartConn  → gelb (rot+grün): Link steht, Frames ruhen
+//   Client mit StartConn   → grün: Frames fliessen
+// Sobald die CCU selbst einen Zustand gesetzt hat (src == HOST), lassen
+// wir ihn in Ruhe — hb_rf_eth.ko schickt ihn beim Reconnect NICHT erneut
+// (gpio_value geht nur bei Änderung raus).  Nur "alle Clients weg"
+// greift weiterhin, wie in der Referenz.  Caller hält S.mtx.
+static void led_local_update_locked(bool after_timeout)
+{
+    int n_conn = 0, n_started = 0;
+    for (int i = 0; i < SINK_HBRFETH_MAX_CLIENTS; i++) {
+        if (!S.clients[i].connected) continue;
+        n_conn++;
+        if (S.clients[i].started) n_started++;
+    }
+    if (n_conn == 0) {
+        hm_led_set(after_timeout, false, false, HM_LED_SRC_LOCAL);
+        return;
+    }
+    hm_led_state_t ls;
+    hm_led_get_state(&ls);
+    if (ls.src == HM_LED_SRC_HOST) return;
+    hm_led_set(n_started == 0, true, false, HM_LED_SRC_LOCAL);
 }
 
 // Build [type, cnt, payload, crc-be] and sendto().  Reiner I/O-Helper —
@@ -269,18 +299,30 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
                      port, c->endpoint_id,
                      client_ep == 0 ? "" : " resume");
         }
+        led_local_update_locked(false);
         break;
     }
     case T_DISCONNECT:
         ESP_LOGI(TAG, "DISCONNECT from client");
         client_disconnect(c);
+        led_local_update_locked(false);
         break;
     case T_KEEPALIVE:
         // last_rx_us already updated above
         break;
     case T_LED:
-        // LED-Cmd: heute noop — kein adressierbares LED-Element
-        // im Bridge-Mode.  CULFW32 macht's auch nicht.
+        // Typ 3: ein Byte, Bit0 rot, Bit1 grün, Bit2 blau.  Kommt vom
+        // hb_rf_eth.ko, sobald die CCU /sys/class/leds/rpi_rf_mod:*
+        // beschreibt (rpi_rf_mod_led.ko → hb-rf-eth-gpio-Chip → cmd 3).
+        // Ab jetzt hat der Host das Sagen über die Modul-LED, siehe
+        // led_local_update_locked().  Referenz prüft die Länge genauso.
+        if (plen != 1) {
+            ESP_LOGW(TAG, "LED packet with bad length %u (expected 1)",
+                     (unsigned)plen);
+            break;
+        }
+        S.stats.led_cmds++;
+        hm_led_set_bits(payload[0], HM_LED_SRC_HOST);
         break;
     case T_RESET:
         // cmd=4 = piVCCU-Standard-Primitive (siehe
@@ -315,10 +357,12 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
     case T_STARTCONN:
         c->started = true;
         ESP_LOGI(TAG, "StartConn — frames will now flow");
+        led_local_update_locked(false);
         break;
     case T_STOPCONN:
         c->started = false;
         ESP_LOGI(TAG, "StopConn — frames suspended");
+        led_local_update_locked(false);
         break;
     case T_FRAME: {
         // Forward raw 0xfd-bytes to the source (USB stick).
@@ -394,7 +438,8 @@ static void keepalive_tick(void *arg)
     // Snapshot der KA-fälligen Clients unter Mutex, dann sendto ohne
     // Mutex über emit_typed (MSG_DONTWAIT).
     struct { uint32_t ip; uint16_t port; uint8_t cnt; } snap[SINK_HBRFETH_MAX_CLIENTS];
-    int nsnap = 0;
+    int  nsnap     = 0;
+    bool timed_out = false;
 
     xSemaphoreTake(S.mtx, portMAX_DELAY);
     for (int i = 0; i < SINK_HBRFETH_MAX_CLIENTS; i++) {
@@ -407,6 +452,7 @@ static void keepalive_tick(void *arg)
                      c->port);
             S.stats.keepalive_timeouts++;
             client_disconnect(c);
+            timed_out = true;
             continue;
         }
         snap[nsnap].ip   = c->ip;
@@ -414,6 +460,7 @@ static void keepalive_tick(void *arg)
         snap[nsnap].cnt  = c->tx_counter++;
         nsnap++;
     }
+    if (timed_out) led_local_update_locked(true);
     xSemaphoreGive(S.mtx);
 
     for (int i = 0; i < nsnap; i++) {

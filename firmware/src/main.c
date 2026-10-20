@@ -40,6 +40,7 @@
 #include "sink_tcp.h"
 #include "sink_hbrfeth.h"
 #include "sink_hmuartlgw_legacy.h"
+#include "hm_led.h"
 #include "log_buffer.h"
 #include "webui.h"
 #include "mdns_glue.h"
@@ -186,6 +187,10 @@ void app_main(void)
     printf("=================================================\n");
 
     bridge_init();
+
+    // RPI-RF-MOD-LED (Header 36/38/40) früh definieren: Outputs, alles aus.
+    // Die Sinks setzen sie bei CONNECT/StartConn, die CCU per HB-RF-ETH Typ 3.
+    hm_led_init();
 
     // ───── Dual-Source-Init (v0.15) ─────
     //

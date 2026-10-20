@@ -25,8 +25,39 @@ cd firmware
 | 10 | per Drahtbrücke zu P4-Pin 15 | Modul TX → P4 UART RX |
 | 15 | GPIO6 | UART-RX-Eingang des P4; Modul-Pin 15 bleibt isoliert |
 | 35 | GPIO53 | Reset, aktiv HIGH |
+| 36 | GPIO46 | Modul-LED rot (Ausgang, 1 = an) |
+| 38 | GPIO27 | Modul-LED grün (Ausgang, 1 = an) |
+| 40 | GPIO45 | Modul-LED blau (Ausgang, 1 = an); am DEV-KIT zugleich SD-Karten-Power-Enable (Q1), ohne SD-Karte folgenlos |
+| 32 | GPIO54 | Modul-Taster (BTN) — nicht angesteuert; am DEV-KIT ist GPIO54 der ESP32-C6-Enable |
 
 Die Firmware konfiguriert UART1 mit 115200 Baud. Die Belegung ist für den Header des DEV-KIT bestimmt.
+
+## RGB-LED des RPI-RF-MOD
+
+Die LED auf dem Funkmodul hängt an den Header-Pins 36/38/40 und wird vom
+Host getrieben (wie bei piVCCU/RaspberryMatic über `rpi_rf_mod_led.ko`,
+Pegel 1 = an). Seit v0.17.0 bedient RFNETHM sie:
+
+| Zustand | LED | Quelle |
+| --- | --- | --- |
+| Boot, kein HB-RF-ETH-Client | aus | lokal |
+| Client verbunden, noch kein StartConn | gelb (rot+grün) | lokal |
+| Client verbunden und StartConn (Frames fließen) | grün | lokal |
+| Keepalive-Timeout, kein Client mehr | rot | lokal |
+| CCU schreibt `/sys/class/leds/rpi_rf_mod:*` | exakt wie bestellt | HB-RF-ETH Typ 3 |
+
+Hat die CCU einmal einen Zustand gesetzt, überschreiben lokale Ereignisse
+ihn nicht mehr (außer „alle Clients weg“). OpenCCU (`hss_led`) schreibt die
+drei LEDs laufend neu, etwa zwei Typ-3-Pakete pro Sekunde; im Normalbetrieb
+bestellt es „aus“, so wie die LED der CCU3 im Betrieb dunkel bleibt. Die
+lokalen Farben sind deshalb nur bis zum ersten CCU-Kommando zu sehen.
+
+Hardware-Test: `POST /api/led` mit `{"r":true,"g":false,"b":false,"hold_ms":5000}`
+oder ein Klick auf einen der drei Punkte in der HB-RF-ETH-Kachel der WebUI.
+Die Firmware hält die Testfarbe `hold_ms` lang (Default 5 s, max 30 s),
+puffert solange die CCU-Kommandos und wendet danach das letzte an.
+`/api/status` zeigt unter `led` Zustand, Quelle (`boot`/`local`/`host`/`api`),
+`hold` und die Zahl der CCU-Kommandos (`host_cmds`).
 
 ## Direkt aufstecken: zwei Pins anpassen, eine Drahtbrücke löten
 

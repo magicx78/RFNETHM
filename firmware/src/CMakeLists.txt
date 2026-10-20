@@ -7,6 +7,7 @@ set(RFNETHM_SOURCES
     "sink_tcp.c"
     "sink_hbrfeth.c"
     "sink_hmuartlgw_legacy.c"
+    "hm_led.c"
     "log_buffer.c"
     "webui.c"
     "mdns_glue.c"
@@ -42,5 +43,11 @@ if(IDF_TARGET STREQUAL "esp32p4")
     target_compile_definitions(${COMPONENT_LIB} PRIVATE
         RFNETHM_UART_TX_GPIO=37
         RFNETHM_UART_RX_GPIO=6
-        RFNETHM_RPI_RESET_GPIO=53)
+        RFNETHM_RPI_RESET_GPIO=53
+        # RPI-RF-MOD-RGB-LED, Header-Pins 36/38/40 des Waveshare DEV-KIT.
+        # GPIO45 ist dort zugleich der SD-Karten-Power-Enable (Q1) — ohne
+        # SD-Karte folgenlos.  Pin 32 (BTN) = GPIO54 = C6_EN, bleibt unbedient.
+        RFNETHM_LED_RED_GPIO=46
+        RFNETHM_LED_GREEN_GPIO=27
+        RFNETHM_LED_BLUE_GPIO=45)
 endif()

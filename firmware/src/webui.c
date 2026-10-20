@@ -9,6 +9,7 @@
 #include "sink_tcp.h"
 #include "sink_hbrfeth.h"
 #include "sink_hmuartlgw_legacy.h"
+#include "hm_led.h"
 #include "log_buffer.h"
 #include "ota_check.h"
 
@@ -207,6 +208,7 @@ static esp_err_t h_status(httpd_req_t *req)
     sink_tcp_stats_t     ts;  sink_tcp_get_stats(&ts);
     sink_hbrfeth_stats_t hs;  sink_hbrfeth_get_stats(&hs);
     sink_hmuartlgw_legacy_stats_t ls; sink_hmuartlgw_legacy_get_stats(&ls);
+    hm_led_state_t       led; hm_led_get_state(&led);
     source_t *cur_src = bridge_get_source();
     const char *active_src = (cur_src && cur_src->short_id) ? cur_src->short_id : "none";
 
@@ -284,7 +286,11 @@ static esp_err_t h_status(httpd_req_t *req)
           "\"tcp\":{\"port\":%u,\"clients\":%d,\"accepts\":%u,"
                   "\"rx\":%u,\"tx\":%u},"
           "\"hb\":{\"port\":%u,\"clients\":%d,\"connects\":%u,\"disconnects\":%u,"
-                  "\"ka_timeouts\":%u,\"bad_crc\":%u,\"rx\":%u,\"tx\":%u},"
+                  "\"ka_timeouts\":%u,\"bad_crc\":%u,\"rx\":%u,\"tx\":%u,"
+                  "\"led_cmds\":%u},"
+          "\"led\":{\"enabled\":%s,\"r\":%s,\"g\":%s,\"b\":%s,\"src\":\"%s\","
+                   "\"hold\":%s,\"host_cmds\":%u,\"changes\":%u,"
+                   "\"gpio\":[%d,%d,%d]},"
           "\"hmu\":{\"port\":%u,\"clients\":%d,\"connects\":%u,\"disconnects\":%u,"
                    "\"tx\":%u,\"ack\":%u,\"orph\":%u,\"foreign\":%u,\"rx\":%u,"
                    "\"hello\":%u,\"aes\":%u,\"reject\":%u},"
@@ -324,6 +330,15 @@ static esp_err_t h_status(httpd_req_t *req)
         (unsigned)hs.total_connects, (unsigned)hs.total_disconnects,
         (unsigned)hs.keepalive_timeouts, (unsigned)hs.bad_crc,
         (unsigned)hs.rx_frames_from_clients, (unsigned)hs.tx_frames_to_clients,
+        (unsigned)hs.led_cmds,
+        led.enabled ? "true" : "false",
+        led.red   ? "true" : "false",
+        led.green ? "true" : "false",
+        led.blue  ? "true" : "false",
+        hm_led_src_str(led.src),
+        led.hold ? "true" : "false",
+        (unsigned)led.host_cmds, (unsigned)led.changes,
+        led.gpio_red, led.gpio_green, led.gpio_blue,
         ls.port, ls.active_clients,
         (unsigned)ls.total_accepts, (unsigned)ls.total_disconnects,
         (unsigned)ls.app_send_translated, (unsigned)ls.llmac_acks_routed,
@@ -613,6 +628,61 @@ static esp_err_t h_source_usb_reset(httpd_req_t *req)
     return httpd_resp_send(req,
         "{\"status\":\"unsupported\",\"reason\":\"USB-Stick hat keinen GPIO-Reset am ESP32-Side\"}",
         87);
+}
+
+// Unsigned-Zahl aus einem flachen JSON-Body ("hold_ms":5000 oder "5000").
+// def wenn key fehlt oder nicht numerisch.
+static uint32_t json_field_uint(const char *in, const char *key, uint32_t def)
+{
+    char needle[32];
+    snprintf(needle, sizeof(needle), "\"%s\"", key);
+    const char *p = strstr(in, needle);
+    if (!p) return def;
+    p = strchr(p + strlen(needle), ':');
+    if (!p) return def;
+    p++;
+    while (*p == ' ' || *p == '\t' || *p == '"') p++;
+    if (*p < '0' || *p > '9') return def;
+    return (uint32_t)strtoul(p, NULL, 10);
+}
+
+// POST /api/led  body: {"r":true,"g":false,"b":false,"hold_ms":5000}
+// Hardware-Test der RPI-RF-MOD-LED.  OpenCCU schreibt die LED laufend neu
+// (~2 Typ-3-Pakete/s), deshalb hält der Test die Farbe hold_ms lang
+// (Default 5 s, max 30 s) und wendet danach das letzte CCU-Kommando an.
+static esp_err_t h_led(httpd_req_t *req)
+{
+    if (require_auth_or_401(req) != ESP_OK) return ESP_FAIL;
+    char body[128] = {0};
+    int  total = 0;
+    while (total < (int)sizeof(body) - 1) {
+        int r = httpd_req_recv(req, body + total, sizeof(body) - 1 - total);
+        if (r <= 0) {
+            if (r == HTTPD_SOCK_ERR_TIMEOUT) continue;
+            break;
+        }
+        total += r;
+    }
+    body[total] = '\0';
+
+    uint32_t hold_ms = json_field_uint(body, "hold_ms", HM_LED_HOLD_DEFAULT_MS);
+    hm_led_test(json_field_truthy(body, "r"),
+                json_field_truthy(body, "g"),
+                json_field_truthy(body, "b"), hold_ms);
+
+    hm_led_state_t led; hm_led_get_state(&led);
+    char resp[160];
+    int rn = snprintf(resp, sizeof(resp),
+                      "{\"ok\":true,\"enabled\":%s,\"r\":%s,\"g\":%s,\"b\":%s,"
+                      "\"src\":\"%s\",\"hold\":%s,\"hold_ms\":%u}",
+                      led.enabled ? "true" : "false",
+                      led.red ? "true" : "false", led.green ? "true" : "false",
+                      led.blue ? "true" : "false", hm_led_src_str(led.src),
+                      led.hold ? "true" : "false",
+                      (unsigned)(hold_ms > HM_LED_HOLD_MAX_MS ? HM_LED_HOLD_MAX_MS : hold_ms));
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_send(req, resp, rn);
 }
 
 // POST /api/bridge/master  body: {"sink":"hbrfeth"|"rawuart"|"hmu"|"auto"}
@@ -1001,7 +1071,7 @@ esp_err_t webui_init(uint16_t port)
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.server_port    = port ? port : 80;
     cfg.lru_purge_enable = true;
-    cfg.max_uri_handlers = 26;          // 4 static + 11 api + 5 captive + headroom
+    cfg.max_uri_handlers = 36;          // 5 static + 19 api + 5 captive + headroom
     // Default 7 ist zu viel für LWIP_MAX_SOCKETS=16 wenn 3 Listener-Sinks
     // ihrerseits 4 Clients halten dürfen. 4 reicht für realistische
     // Web-UI-Last (1-3 Browser-Tabs) und lässt Reserve für die Sinks.
@@ -1032,6 +1102,7 @@ esp_err_t webui_init(uint16_t port)
     u = (httpd_uri_t){ .uri = "/api/wifi/reset",           .method = HTTP_POST, .handler = h_wifi_reset }; httpd_register_uri_handler(s_http, &u);
     u = (httpd_uri_t){ .uri = "/api/log",                  .method = HTTP_GET,  .handler = h_log        }; httpd_register_uri_handler(s_http, &u);
     u = (httpd_uri_t){ .uri = "/api/bridge/master",        .method = HTTP_POST, .handler = h_bridge_master }; httpd_register_uri_handler(s_http, &u);
+    u = (httpd_uri_t){ .uri = "/api/led",                  .method = HTTP_POST, .handler = h_led           }; httpd_register_uri_handler(s_http, &u);
     u = (httpd_uri_t){ .uri = "/api/source/uart/reset",    .method = HTTP_POST, .handler = h_source_uart_reset }; httpd_register_uri_handler(s_http, &u);
     u = (httpd_uri_t){ .uri = "/api/source/usb/reset",     .method = HTTP_POST, .handler = h_source_usb_reset  }; httpd_register_uri_handler(s_http, &u);
     u = (httpd_uri_t){ .uri = "/api/reboot",               .method = HTTP_POST, .handler = h_reboot     }; httpd_register_uri_handler(s_http, &u);

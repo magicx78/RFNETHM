@@ -16,7 +16,7 @@
 //                   V2: payload=[ver=2, ep_id]     → reply [2, mirror_cnt, server_ep_id]
 //     1  Disconnect (host → modul)
 //     2  KeepAlive  (1 Hz host → modul, 5 s timeout; modul auch out 1 Hz)
-//     3  LED        (1 byte rgb-bits — wir ignorieren)
+//     3  LED        (1 Byte: Bit0 rot, Bit1 grün, Bit2 blau → RPI-RF-MOD-LED, hm_led.h)
 //     4  Reset      (we ignore)
 //     5  StartConn  (Type-7-Frames werden erst nach diesem Type weitergeleitet)
 //     6  StopConn   (gegenteil)
@@ -49,6 +49,7 @@ typedef struct {
     uint32_t tx_frames_to_clients;        // Type-7 Richtung Client
     uint32_t tx_dropped_not_started;      // Sink hat Bytes aber kein StartConn
     uint32_t tx_dropped_eagain;           // sendto EAGAIN (lwIP TX-Queue voll)
+    uint32_t led_cmds;                    // Typ-3 LED-Pakete vom Host
 } sink_hbrfeth_stats_t;
 
 void sink_hbrfeth_get_stats(sink_hbrfeth_stats_t *out);

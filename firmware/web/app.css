@@ -780,3 +780,17 @@ button:disabled {
   .tabs { margin-left: 0; margin-top: 0.5rem; flex-wrap: wrap; }
   .console-pane { height: 50vh; font-size: 0.75rem; }
 }
+
+/* ───── RPI-RF-MOD LED (HB-RF-ETH Typ 3) in der HB-RF-ETH-Kachel ───── */
+.stats-card .stat-row-led b { display: inline-flex; align-items: center; gap: 0.45rem; }
+.led-dots { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.led-dot {
+  display: inline-block; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--surface-elev); border: 1px solid var(--border);
+  transition: background .15s, box-shadow .15s;
+}
+.led-dot.r.on { background: #ef4444; border-color: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.led-dot.g.on { background: #22c55e; border-color: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.led-dot.b.on { background: #3b82f6; border-color: #3b82f6; box-shadow: 0 0 6px #3b82f6; }
+.led-dots.led-disabled { opacity: .35; cursor: default; }
+.led-src { color: var(--muted); font-weight: 400; font-size: 0.75rem; }

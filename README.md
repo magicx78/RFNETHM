@@ -199,8 +199,11 @@ Die eingebaute Web-Oberfläche ist im P4-Aufbau nach dem Ethernet-Start unter
 Pfad). Alternativ die vom DHCP-Server vergebene IP-Adresse verwenden. Sie zeigt
 Sources, Sinks und System-Status als Kachel-Dashboard — inklusive
 Reset-Reason, Heap- und Stack-HWM-Indikator für den Dauerlauf-Betrieb,
-TX-Master-Soft-Lock pro Sink, Live-Log und OTA-Update. WLAN-Provisioning
-gehört zum ESP32-S3-Ziel.
+TX-Master-Soft-Lock pro Sink, Live-Log und OTA-Update. Die HB-RF-ETH-Kachel
+zeigt zusätzlich den Zustand der RPI-RF-MOD-LED (rot/grün/blau) und wer ihn
+gesetzt hat; ein Klick auf einen der drei Punkte schaltet die Farbe für 5 s
+zum Test um (`POST /api/led`), danach übernimmt wieder die CCU. WLAN-
+Provisioning gehört zum ESP32-S3-Ziel.
 
 > Falls mehrere RFNETHM-Sticks am gleichen LAN hängen: `rfnethm.local`
 > wird von beiden gleichzeitig beworben — welcher tatsächlich antwortet,
@@ -259,6 +262,10 @@ aus dessen Bestandsplattform-Dokumentation.
   Endpoint-ID) übernimmt seit v0.16.0 die laufende Session inklusive
   StartConn-Zustand — vorher blieb der RX-Pfad Richtung CCU nach jedem
   Kernel-Reconnect still, bis die CCU neu gestartet wurde
+- RGB-LED des RPI-RF-MOD (Header 36/38/40) seit v0.17.0: gelb bei
+  Verbindung, grün sobald Frames fließen, rot nach Keepalive-Timeout, und
+  die CCU steuert sie über HB-RF-ETH Typ 3 (`/sys/class/leds/rpi_rf_mod:*`)
+  wie beim Original-HB-RF-ETH; Test per `POST /api/led`
 
 **Nicht fertig:**
 

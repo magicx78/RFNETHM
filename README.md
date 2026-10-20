@@ -255,6 +255,10 @@ aus dessen Bestandsplattform-Dokumentation.
   via UDP-Transport (RPI-RF-MOD 4.4.22 ⇆ 4.2.14, HM-MOD 2.8.6 ⇆ 2.2.1)
 - Multi-Client-Fanout, TX-Master-Lock, mDNS und OTA (beide Ziele);
   Captive-AP-Fallback (S3-Ziel)
+- HB-RF-ETH-Reconnect des `hb_rf_eth.ko` (neuer Source-Port, gleiche
+  Endpoint-ID) übernimmt seit v0.16.0 die laufende Session inklusive
+  StartConn-Zustand — vorher blieb der RX-Pfad Richtung CCU nach jedem
+  Kernel-Reconnect still, bis die CCU neu gestartet wurde
 
 **Nicht fertig:**
 

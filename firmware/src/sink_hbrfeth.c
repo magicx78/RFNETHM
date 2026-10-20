@@ -42,6 +42,7 @@ typedef struct {
     uint8_t   endpoint_id; // V2 reconnect tracking
     uint8_t   tx_counter;  // our outgoing counter
     int64_t   last_rx_us;
+    bool      inherited;   // slot took over an evicted same-IP session
 } hb_client_t;
 
 static struct {
@@ -80,8 +81,25 @@ static hb_client_t *find_or_create(uint32_t ip, uint16_t port)
     // sofort alle SLOTS, neue CONNECTs werden abgelehnt, der Kernel
     // hängt im "Timeout occured while connecting"-Loop.  Beobachtet
     // 2026-05-07 nach OTA-Reboot.
+    //
+    // Session-Vererbung: Der Kernel macht den Reconnect aus seinem
+    // Receiver-Thread heraus, ohne /dev/raw-uart zu schliessen.  Er
+    // schickt danach KEIN neues StartConn (cmd=5) -- das kommt nur beim
+    // ersten open().  Wer hier den Slot mit started=false neu anlegt,
+    // verwirft ab dann jedes Modul-Frame still (tx_dropped_not_started),
+    // waehrend TX Richtung Modul weiter funktioniert: CCU sieht
+    // "Duty cycle response timeout", alle Geraete "Geraetekommunikation
+    // gestoert".  Beobachtet 2026-10-17 bis 2026-10-20 auf OpenCCU.
+    // A.R.s HB-RF-ETH-Firmware behaelt _connectionStarted beim
+    // Reconnect ebenfalls bei (rawuartudplistener.cpp, case 0 / V2).
+    bool    inherited       = false;
+    bool    inherit_started = false;
+    uint8_t inherit_ep      = 1;
     for (int i = 0; i < SINK_HBRFETH_MAX_CLIENTS; i++) {
         if (S.clients[i].connected && S.clients[i].ip == ip) {
+            inherited       = true;
+            inherit_started = S.clients[i].started;
+            inherit_ep      = S.clients[i].endpoint_id;
             client_disconnect(&S.clients[i]);
         }
     }
@@ -91,7 +109,9 @@ static hb_client_t *find_or_create(uint32_t ip, uint16_t port)
             memset(&S.clients[i], 0, sizeof(S.clients[i]));
             S.clients[i].ip            = ip;
             S.clients[i].port          = port;
-            S.clients[i].endpoint_id   = 1;
+            S.clients[i].endpoint_id   = inherit_ep;
+            S.clients[i].started       = inherit_started;
+            S.clients[i].inherited     = inherited;
             S.clients[i].last_rx_us    = esp_timer_get_time();
             return &S.clients[i];
         }
@@ -190,15 +210,16 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
     c->last_rx_us = esp_timer_get_time();
 
     switch (type) {
-    case T_CONNECT:
-        if (!c->connected) {
+    case T_CONNECT: {
+        bool fresh_record = !c->connected;   // Slot kam eben aus find_or_create
+        if (fresh_record) {
             c->connected = true;
             S.stats.active_clients++;
             S.stats.total_connects++;
         }
-        c->started = false;
         if (plen == 1 && payload[0] == 1) {
             // V1: reply [status=1, mirror_cnt]
+            c->started = false;
             c->endpoint_id += 2;
             uint8_t resp[2] = { 1, cnt };
             send_typed_locked(ip, port, T_CONNECT, resp, 2, NULL);
@@ -229,6 +250,16 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
                 c->started = false;
             } else {
                 c->endpoint_id = client_ep;   // adopt + resume
+                // started NICHT anfassen: Reconnect = laufende Session,
+                // der Kernel schickt kein neues StartConn.  Hat dieser
+                // ESP keine Vorgaenger-Session (frisch gebootet, z.B.
+                // nach OTA/Stromausfall), ist /dev/raw-uart kernelseitig
+                // trotzdem offen -> als gestartet annehmen, sonst bleibt
+                // der RX-Pfad bis zum naechsten CCU-Neustart tot.
+                if (fresh_record && !c->inherited) {
+                    c->started = true;
+                    ESP_LOGW(TAG, "V2 resume into fresh session - assuming StartConn");
+                }
             }
             uint8_t resp[3] = { 2, cnt, c->endpoint_id };
             send_typed_locked(ip, port, T_CONNECT, resp, 3, NULL);
@@ -239,6 +270,7 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
                      client_ep == 0 ? "" : " resume");
         }
         break;
+    }
     case T_DISCONNECT:
         ESP_LOGI(TAG, "DISCONNECT from client");
         client_disconnect(c);

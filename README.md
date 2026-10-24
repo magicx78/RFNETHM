@@ -266,6 +266,11 @@ aus dessen Bestandsplattform-Dokumentation.
   Verbindung, grün sobald Frames fließen, rot nach Keepalive-Timeout, und
   die CCU steuert sie über HB-RF-ETH Typ 3 (`/sys/class/leds/rpi_rf_mod:*`)
   wie beim Original-HB-RF-ETH; Test per `POST /api/led`
+- Modul-Reset der CCU (HB-RF-ETH Typ 4) seit v0.18.0 wie beim
+  Original-HB-RF-ETH als reiner Reset-Puls; die Verbindung zum Modul
+  bleibt offen und OpenCCU bringt das Modul selbst in die App. Vorher
+  lief ein eigener Bootloader→App-Ablauf, während dessen RFNETHM rund
+  3,5 s lang Befehle der CCU verwarf
 
 **Nicht fertig:**
 

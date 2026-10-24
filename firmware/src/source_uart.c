@@ -85,6 +85,15 @@ static struct {
     int64_t           flash_lock_us;     // Lock-Zeitstempel für Auto-Release
     char              app_tag[32];
     char              describe_buf[80];
+    // RST-Pin, über den das Modul zuletzt geantwortet hat.  Braucht der
+    // HB-RF-ETH-Reset (cmd=4), der nur noch pulst (siehe
+    // reconnect_recovery_task).
+    bool              rst_known;
+    int               rst_pin;
+    int               rst_active_high;
+    // true während boot_probe() läuft: dann führt uart_frame_cb den
+    // Modul-Zustand nicht passiv mit, die Probe setzt ihn selbst.
+    volatile bool     probe_active;
 } S;
 
 // Keep HB-RF-ETH reconnect resets coalesced while one recovery is pending.
@@ -235,6 +244,17 @@ static void uart_frame_cb(void *ctx, uint8_t dst, uint8_t cnt,
            : klass == BOOT_TAG_BL  ? "Bootloader"
            :                         "unknown");
     post_boot_event(klass, tag);
+
+    // Passiv mitführen, wenn gerade keine eigene Probe läuft: Nach einem
+    // HB-RF-ETH-Reset (cmd=4) bringt der Host das Modul selbst vom
+    // Bootloader in die App.  Banner und IDENTIFY-Antworten, die dabei
+    // vorbeikommen, halten boot_done/app_tag aktuell (WebUI, mDNS,
+    // Legacy-Sink).
+    if (!S.probe_active && !S.flash_lock &&
+        (klass == BOOT_TAG_APP || klass == BOOT_TAG_BL)) {
+        snprintf(S.app_tag, sizeof(S.app_tag), "%s", tag);
+        S.boot_done = (klass == BOOT_TAG_APP);
+    }
 }
 
 // ───── TX-Helper für Boot-Probe + Source-tx ────────────────────────────
@@ -285,6 +305,15 @@ static module_family_t family_from_tag(const char *tag)
 #define POL_HM_MOD     0
 #define POL_RPI_RF     1
 
+// Merkt sich, über welchen RST-Pin (und mit welcher Polarität) das Modul
+// geantwortet hat.
+static void remember_rst(int pin, int active_high)
+{
+    S.rst_pin         = pin;
+    S.rst_active_high = active_high;
+    S.rst_known       = true;
+}
+
 // Versucht eine Reset-Pulse-Polarität auf einem Pin und prüft ob danach
 // ein Banner kommt.  Vorhandene Boot-Queue wird vorher gedrained.
 static bool try_reset_get_banner(int pin, int active_high, int wait_ms,
@@ -310,6 +339,7 @@ static bool reset_and_get_banner(boot_event_t *ev_out)
              PIN_RST_HMMOD);
     if (try_reset_get_banner(PIN_RST_HMMOD, POL_HM_MOD, 600, ev_out)) {
         ESP_LOGW(TAG, "Banner via HM-MOD-RST — Modul ist HM-MOD-Familie");
+        remember_rst(PIN_RST_HMMOD, POL_HM_MOD);
         return true;
     }
 
@@ -326,14 +356,15 @@ static bool reset_and_get_banner(boot_event_t *ev_out)
     // CHANGE_APP-Push war ähnlich: 1500→3500 ms).
     if (try_reset_get_banner(PIN_RST_RPIRF, POL_RPI_RF, 3000, ev_out)) {
         ESP_LOGW(TAG, "Banner via RPI-RF-MOD-RST — Modul ist RPI-RF-MOD-Familie");
+        remember_rst(PIN_RST_RPIRF, POL_RPI_RF);
         return true;
     }
     return false;
 }
 
 // Boot-Probe — full-cycle: RST+Banner-Discovery, dann CHANGE_APP wenn
-// nötig, finaler App-Mode verifiziert.
-static bool boot_probe(uint8_t *cnt_io)
+// nötig, finaler App-Mode verifiziert.  Aufruf nur über boot_probe().
+static bool boot_probe_inner(uint8_t *cnt_io)
 {
     // 3500ms: RPI-RF-MOD/DualCoPro braucht nach CHANGE_APP empirisch
     // ~2200ms bis der App-Push kommt (Live-Probe 2026-05-11).  HM-MOD ist
@@ -420,7 +451,24 @@ static bool boot_probe(uint8_t *cnt_io)
     }
 
     snprintf(S.app_tag, sizeof(S.app_tag), "%s", saved_tag);
+
+    // Kam kein Banner (Modul war schon in der App), kennt reset_and_get_
+    // banner() den Pin nicht.  Dann aus der Modul-Familie ableiten: am
+    // UART ist DualCoPro das RPI-RF-MOD, Co_CPU das HM-MOD-RPI-PCB.
+    if (!S.rst_known) {
+        module_family_t fam = family_from_tag(saved_tag);
+        if (fam == FAMILY_DUALCOPRO)    remember_rst(PIN_RST_RPIRF, POL_RPI_RF);
+        else if (fam == FAMILY_LEGACY)  remember_rst(PIN_RST_HMMOD, POL_HM_MOD);
+    }
     return true;
+}
+
+static bool boot_probe(uint8_t *cnt_io)
+{
+    S.probe_active = true;
+    bool ok = boot_probe_inner(cnt_io);
+    S.probe_active = false;
+    return ok;
 }
 
 // ───── RX-Pump-Task ────────────────────────────────────────────────────
@@ -604,7 +652,26 @@ static void reconnect_recovery_task(void *arg)
 
     if (S.flash_lock) {
         ESP_LOGW(TAG, "HB-RF-ETH reconnect reset ignored while flash lock is active");
+    } else if (S.ready && S.rst_known) {
+        // Wie der Original-HB-RF-ETH: cmd=4 ist ein reiner Reset-Puls.
+        // Das Modul startet danach im Bootloader, und der Host bringt es
+        // selbst in die App (OpenCCU: detect_radio_module,
+        // hmip-copro-update, multimacd/rfd, dieselben Werkzeuge wie beim
+        // RPI-RF-MOD am Pi-GPIO).  Die Source bleibt ready und an der
+        // Bridge, Host-Befehle und Modul-Antworten fliessen durchgehend.
+        //
+        // Bis v0.17.0 lief hier die volle BL->App-Probe mit ready=false.
+        // Der Supervisor hängte die Source dafür ~3,5 s ab, Host-TX wurde
+        // verworfen (br.tx_drop) und RX nicht weitergereicht, während der
+        // Host parallel selbst zwischen Bootloader und App umschaltete
+        // (beobachtet 2026-10-24 beim OpenCCU-Start).
+        ESP_LOGW(TAG, "HB-RF-ETH reset: RST pulse on GPIO%d (%s), host drives BL->App",
+                 S.rst_pin, S.rst_active_high ? "active-HIGH" : "active-LOW");
+        S.boot_done = false;
+        reset_pulse_pol(S.rst_pin, S.rst_active_high);
     } else {
+        // Modul seit ESP-Start nie erkannt oder nicht ready: voller
+        // Boot-Probe wie beim Start (findet dabei auch den RST-Pin).
         ESP_LOGW(TAG, "HB-RF-ETH reconnect reset: restarting full UART boot probe");
         S.ready     = false;
         S.boot_done = false;

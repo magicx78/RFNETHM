@@ -335,20 +335,22 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
         // (würde jeden normalen Container-Start 5 Min im flash-Modus
         // sticken; user-Argument 2026-05-08).
         //
-        // OpenCCU may reconnect after a gateway change while RFNETHM remains
-        // running. A bare RST would leave the RPI-RF-MOD in its bootloader,
-        // so schedule the same full BL→App probe used during ESP startup.
-        // Keep this asynchronous: the probe can take longer than one
-        // HB-RF-ETH keepalive interval.
+        // Wie beim Original-HB-RF-ETH ist cmd=4 ein Reset-Puls auf dem
+        // Modul; OpenCCU (detect_radio_module, hmip-copro-update,
+        // multimacd/rfd) bringt das Modul danach selbst vom Bootloader in
+        // die App.  Die UART-Source bleibt dabei an der Bridge.  Nur wenn
+        // das Modul seit dem ESP-Start noch nie erkannt wurde, läuft der
+        // volle BL→App-Boot-Probe.  Asynchron, damit dieser rx_task die
+        // Keepalives weiter beantwortet.
         //
         // Auf USB-Source ist cmd=4 ein Noop (HmIP-RFUSB-Stick hat keinen
         // am ESP32 schaltbaren RST-Pin, siehe pcb_basics_must_have).
         {
             esp_err_t r = source_uart_recover_after_hbrfeth_reset();
             if (r == ESP_OK) {
-                ESP_LOGW(TAG, "T_RESET (cmd=4): UART recovery scheduled");
+                ESP_LOGW(TAG, "T_RESET (cmd=4): UART reset scheduled");
             } else {
-                ESP_LOGW(TAG, "T_RESET (cmd=4): UART recovery scheduling → %s "
+                ESP_LOGW(TAG, "T_RESET (cmd=4): UART reset scheduling → %s "
                               "(kein UART-Modul gesteckt? USB-only-Setup?)",
                          esp_err_to_name(r));
             }

@@ -51,9 +51,13 @@ void source_uart_get_stats(source_uart_stats_t *out);
 esp_err_t source_uart_reset_for_flash(bool hold_in_bl,
                                       char *tag_out, size_t tag_cap);
 
-// HB-RF-ETH T_RESET (cmd=4) wird von OpenCCU bei jeder Verbindung gesendet.
-// Die vollständige Reset-/Boot-Probe läuft asynchron, damit Keepalives weiter
-// beantwortet werden. Bei gesetztem Flash-Lock bleibt das Modul im Bootloader.
+// HB-RF-ETH T_RESET (cmd=4) wird von OpenCCU bei jeder Verbindung und in der
+// Hardware-Erkennung gesendet.  Läuft asynchron, damit Keepalives weiter
+// beantwortet werden; Resets während eines laufenden werden zusammengefasst.
+//   - Modul bekannt und ready: nur RST-Puls auf dem bekannten Pin, wie beim
+//     Original-HB-RF-ETH.  Source bleibt ready, der Host startet die App.
+//   - sonst: voller Boot-Probe (BL→App) wie beim ESP-Start.
+//   - Flash-Lock aktiv: ignoriert, Modul bleibt im Bootloader.
 esp_err_t source_uart_recover_after_hbrfeth_reset(void);
 
 // Returns true wenn aktuell im Flash-Mode (Modul im BL gehalten).

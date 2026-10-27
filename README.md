@@ -265,7 +265,13 @@ aus dessen Bestandsplattform-Dokumentation.
 - RGB-LED des RPI-RF-MOD (Header 36/38/40) seit v0.17.0: gelb bei
   Verbindung, grün sobald Frames fließen, rot nach Keepalive-Timeout, und
   die CCU steuert sie über HB-RF-ETH Typ 3 (`/sys/class/leds/rpi_rf_mod:*`)
-  wie beim Original-HB-RF-ETH; Test per `POST /api/led`
+  wie beim Original-HB-RF-ETH; Test per `POST /api/led`. Einschränkung:
+  OpenCCU bis 3.89.11 auf Home Assistant OS schickt nur „aus“, weil dem
+  HAOS-Kernel die LED-Trigger `timer` und `default-on` fehlen, die
+  `hss_led` 2.3 braucht. Die LED bleibt dort auch bei Alarm- und
+  Servicemeldungen dunkel, bis ein OpenCCU-Release mit dem neuen `hss_led`
+  erscheint (Details in
+  [docs/esp32p4_port.md](docs/esp32p4_port.md#rgb-led-des-rpi-rf-mod))
 - Modul-Reset der CCU (HB-RF-ETH Typ 4) seit v0.18.0 wie beim
   Original-HB-RF-ETH als reiner Reset-Puls; die Verbindung zum Modul
   bleibt offen und OpenCCU bringt das Modul selbst in die App. Vorher

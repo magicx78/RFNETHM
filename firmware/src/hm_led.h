@@ -10,11 +10,17 @@
 // beschreibt.  Dieses Modul ist der reine Pin-Treiber plus Zustand; die
 // Protokoll-Logik liegt in sink_hbrfeth.c, Test/Anzeige in webui.c.
 //
-// Beobachtet mit OpenCCU (HM_HOST=oci): hss_led schreibt die drei LEDs
-// laufend neu (~2 Typ-3-Pakete/s, im Normalbetrieb alle aus).  Ein Hand-
-// Test wäre damit nach <1 s wieder überschrieben — deshalb gibt es den
-// Test-Hold: hm_led_test() hält die Farbe hold_ms lang, Host-Kommandos
-// werden solange nur gemerkt und danach der letzte Stand angewendet.
+// OpenCCU (hss_led) zeigt wie die CCU3 im Normalbetrieb blau, bei Service-
+// bzw. Alarmmeldungen gelb/blau bzw. rot/blau im Wechsel.  hss_led 2.3 (bis
+// OpenCCU 3.89.11) braucht dafür die Kernel-Trigger default-on und timer;
+// fehlen sie wie unter Home Assistant OS, setzt es die LEDs alle paar
+// Sekunden wieder auf aus (beobachtet: Bündel von 4–8 Typ-3-Paketen, immer
+// aus).  Neuere hss_led blinken im Userspace und schicken beim Blinken
+// laufend Typ-3-Pakete.  Ein Hand-Test wäre damit nach spätestens wenigen
+// Sekunden wieder überschrieben — deshalb gibt es den Test-Hold:
+// hm_led_test() hält die Farbe hold_ms lang, Host-Kommandos werden solange
+// nur gemerkt und danach der letzte Stand angewendet.  Details:
+// docs/esp32p4_port.md, Abschnitt RGB-LED.
 //
 // Pins per Compile-Define (siehe src/CMakeLists.txt):
 //   RFNETHM_LED_RED_GPIO / _GREEN_GPIO / _BLUE_GPIO   (-1 = nicht beschaltet)

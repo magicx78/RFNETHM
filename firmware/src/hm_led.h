@@ -49,6 +49,9 @@ typedef struct {
     hm_led_src_t src;             // wer den aktuellen Zustand gesetzt hat
     bool         hold;            // Test-Hold aktiv: Host-Kommandos werden gepuffert
     uint32_t     host_cmds;       // empfangene Typ-3-Pakete seit Boot
+    bool         host_known;      // ein CCU-Zustand ist bekannt (host_bits gültig)
+    uint8_t      host_bits;       // letzter CCU-Zustand: Bit0 rot, Bit1 grün, Bit2 blau
+    bool         restored;        // host_bits stammt von vor einem Software-Reset
     uint32_t     changes;         // tatsächliche Zustandswechsel seit Boot
     int64_t      last_change_us;  // esp_timer-Zeitstempel des letzten Wechsels
     int          gpio_red, gpio_green, gpio_blue;
@@ -65,6 +68,21 @@ void hm_led_set(bool red, bool green, bool blue, hm_led_src_t src);
 // wenn src == HM_LED_SRC_HOST; während eines Test-Holds wird ein Host-
 // Kommando nur gemerkt und nach Ablauf angewendet.
 void hm_led_set_bits(uint8_t bits, hm_led_src_t src);
+
+// Letzten bekannten CCU-Zustand erneut anwenden (src HOST), wenn
+// hb_rf_eth.ko eine Session wieder aufnimmt.  Der Kernel schickt Typ 3 nur
+// bei Änderungen; nach unserem Neustart oder einem Keepalive-Timeout käme
+// sonst bis zur nächsten Änderung nur die lokale Farbe.  Der Zustand
+// überlebt Software-Resets (OTA, Reboot, Panic, Watchdog) im RTC-Speicher,
+// nach einem Kaltstart ist keiner bekannt.  Während eines Test-Holds wird
+// er nur vorgemerkt.  false = kein CCU-Zustand bekannt.
+bool hm_led_resume_host(void);
+
+// Neue Kernel-Session (V1 oder V2 mit Endpoint 0, z.B. nach dem Neuladen
+// von hb_rf_eth.ko): der gemerkte CCU-Zustand gehört zur alten Session und
+// wird verworfen, auch im RTC-Speicher.  Eine noch angezeigte CCU-Farbe
+// gilt danach als lokal, damit die lokale Anzeige neu entscheidet.
+void hm_led_forget_host(void);
 
 // Hardware-Test: Farbe setzen (src API) und hold_ms lang gegen Host-
 // Kommandos halten (0 = kein Hold, max HM_LED_HOLD_MAX_MS).

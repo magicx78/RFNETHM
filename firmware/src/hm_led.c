@@ -5,9 +5,12 @@
 #include "hm_led.h"
 
 #include "driver/gpio.h"
+#include "esp_attr.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "sdkconfig.h"
 #include <string.h>
 
 static const char *TAG = "hm-led";
@@ -23,9 +26,23 @@ static const char *TAG = "hm-led";
 #endif
 
 // Nach den ersten Host-Kommandos nur noch DEBUG loggen: OpenCCU schreibt
-// die LEDs laufend neu (~2 Pakete/s), das würde den 60-Zeilen-Log-Ring in
-// Sekunden leerfegen.  Echte Zustandswechsel bleiben bei INFO.
+// die LEDs laufend neu (hss_led 2.3 auf HAOS alle paar Sekunden, neuere
+// hss_led beim Blinken mehrmals pro Sekunde), das würde den 60-Zeilen-
+// Log-Ring schnell leerfegen.  Echte Zustandswechsel bleiben bei INFO.
 #define HOST_LOG_VERBOSE_CMDS 10
+
+// Letzter CCU-Zustand über Software-Resets hinweg im RTC-Speicher.  Kein
+// NVS: neuere hss_led blinken im Userspace und schicken mehrere Typ-3-
+// Pakete pro Sekunde, das wäre ein Flash-Schreibzugriff pro Paket.  Nach
+// einem Kaltstart ist der Inhalt zufällig, deshalb Magic + invertierte
+// Kopie.
+#define HOST_SNAP_MAGIC 0x4C454431u   // "LED1"
+typedef struct {
+    uint32_t magic;
+    uint8_t  bits;
+    uint8_t  bits_inv;
+} host_snap_t;
+static RTC_NOINIT_ATTR host_snap_t s_host_snap;
 
 static hm_led_state_t    S;
 static portMUX_TYPE      s_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -61,7 +78,48 @@ static void drive(int gpio, bool on)
     if (gpio >= 0) gpio_set_level((gpio_num_t)gpio, on ? 1 : 0);
 }
 
+// RTC-Speicher bleibt nur bei Software-Resets erhalten; Kaltstart,
+// Brownout und externer Reset verwerfen den gemerkten Zustand.
+static bool reset_keeps_rtc(esp_reset_reason_t why)
+{
+    switch (why) {
+    case ESP_RST_SW:
+    case ESP_RST_PANIC:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:
+#if CONFIG_IDF_TARGET_ESP32P4
+    case ESP_RST_CPU_LOCKUP:   // RISC-V Double Exception; älteren IDF des S3-Builds unbekannt
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Gemerkten CCU-Zustand von vor dem Reset übernehmen.  Läuft vor allen
+// Sinks, daher ohne Lock.
+static void restore_host_snapshot(void)
+{
+    const host_snap_t *h = &s_host_snap;
+    if (reset_keeps_rtc(esp_reset_reason()) &&
+        h->magic == HOST_SNAP_MAGIC && h->bits <= 0x07 &&
+        h->bits_inv == (uint8_t)~h->bits) {
+        S.host_known = true;
+        S.host_bits  = h->bits;
+        S.restored   = true;
+        ESP_LOGI(TAG, "letzter CCU-Zustand vor dem Neustart: %s",
+                 rgb_name(h->bits & 0x01, h->bits & 0x02, h->bits & 0x04));
+    } else {
+        s_host_snap.magic = 0;
+    }
+}
+
 // Test-Hold abgelaufen (esp_timer-Task): letztes Host-Kommando nachholen.
+// Kam währenddessen keins, steht aber noch die Testfarbe, zurück zum
+// letzten bekannten CCU-Zustand — der Kernel schickt ihn nicht von selbst
+// noch einmal.  Hat eine lokale Anzeige die Testfarbe schon ersetzt (alle
+// Clients weg), bleibt diese stehen.
 static void hold_expired(void *arg)
 {
     (void)arg;
@@ -72,6 +130,10 @@ static void hold_expired(void *arg)
     apply          = s_pending_host;
     bits           = s_pending_bits;
     s_pending_host = false;
+    if (!apply && S.src == HM_LED_SRC_API && S.host_known) {
+        apply = true;
+        bits  = S.host_bits;
+    }
     portEXIT_CRITICAL(&s_lock);
     if (apply) {
         hm_led_set(bits & 0x01, bits & 0x02, bits & 0x04, HM_LED_SRC_HOST);
@@ -86,6 +148,7 @@ void hm_led_init(void)
     S.gpio_red   = RFNETHM_LED_RED_GPIO;
     S.gpio_green = RFNETHM_LED_GREEN_GPIO;
     S.gpio_blue  = RFNETHM_LED_BLUE_GPIO;
+    restore_host_snapshot();
 
     uint64_t mask = 0;
     if (S.gpio_red   >= 0) mask |= 1ULL << S.gpio_red;
@@ -161,9 +224,15 @@ void hm_led_set(bool red, bool green, bool blue, hm_led_src_t src)
 void hm_led_set_bits(uint8_t bits, hm_led_src_t src)
 {
     if (src == HM_LED_SRC_HOST) {
-        bool held;
+        bool    held;
+        uint8_t rgb = bits & 0x07;
         portENTER_CRITICAL(&s_lock);
         S.host_cmds++;
+        S.host_known = true;
+        S.host_bits  = rgb;
+        S.restored   = false;
+        s_host_snap  = (host_snap_t){ .magic = HOST_SNAP_MAGIC, .bits = rgb,
+                                      .bits_inv = (uint8_t)~rgb };
         held = S.hold;
         if (held) {
             s_pending_host = true;
@@ -173,6 +242,56 @@ void hm_led_set_bits(uint8_t bits, hm_led_src_t src)
         if (held) return;   // nach Ablauf des Holds nachgeholt
     }
     hm_led_set(bits & 0x01, bits & 0x02, bits & 0x04, src);
+}
+
+bool hm_led_resume_host(void)
+{
+    bool         known, held, restored;
+    uint8_t      bits, cur_bits;
+    hm_led_src_t cur_src;
+    portENTER_CRITICAL(&s_lock);
+    known    = S.host_known;
+    bits     = S.host_bits;
+    restored = S.restored;
+    held     = S.hold;
+    cur_src  = S.src;
+    cur_bits = (S.red ? 0x01 : 0) | (S.green ? 0x02 : 0) | (S.blue ? 0x04 : 0);
+    if (known && held) {
+        s_pending_host = true;
+        s_pending_bits = bits;
+    }
+    portEXIT_CRITICAL(&s_lock);
+    if (!known) return false;
+
+    // Reconnect-Bursts nicht in den Log-Ring: INFO nur, wenn sich die
+    // Anzeige dadurch ändert (lokale Farbe → CCU-Zustand).
+    if (cur_src != HM_LED_SRC_HOST || cur_bits != bits) {
+        ESP_LOGI(TAG, "Session wiederaufgenommen — letzter CCU-Zustand %s%s%s",
+                 rgb_name(bits & 0x01, bits & 0x02, bits & 0x04),
+                 restored ? " (von vor dem Neustart)" : "",
+                 held ? ", nach dem Test-Hold" : "");
+    } else {
+        ESP_LOGD(TAG, "Session wiederaufgenommen — CCU-Zustand unverändert");
+    }
+    if (!held) hm_led_set(bits & 0x01, bits & 0x02, bits & 0x04, HM_LED_SRC_HOST);
+    return true;
+}
+
+void hm_led_forget_host(void)
+{
+    bool had;
+    portENTER_CRITICAL(&s_lock);
+    had             = S.host_known;
+    S.host_known    = false;
+    S.host_bits     = 0;
+    S.restored      = false;
+    s_pending_host  = false;
+    s_host_snap.magic = 0;
+    // Die angezeigte CCU-Farbe gehört zur alten Session: als lokal
+    // markieren, damit led_local_update_locked() neu entscheidet.
+    if (S.src == HM_LED_SRC_HOST) S.src = HM_LED_SRC_LOCAL;
+    portEXIT_CRITICAL(&s_lock);
+    if (had) ESP_LOGI(TAG, "neue HB-RF-ETH-Session — alter CCU-Zustand verworfen");
 }
 
 void hm_led_test(bool red, bool green, bool blue, uint32_t hold_ms)

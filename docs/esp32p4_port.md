@@ -107,6 +107,8 @@ OpenCCU-Release nach 3.89.11.20260919 zu erwarten; ab dann sollte die LED
 die CCU-Zustände ohne Änderung an RFNETHM zeigen (mit RFNETHM noch nicht
 getestet).
 
+### Hardware-Test und Status
+
 Hardware-Test: `POST /api/led` mit `{"r":true,"g":false,"b":false,"hold_ms":5000}`
 oder ein Klick auf einen der drei Punkte in der HB-RF-ETH-Kachel der WebUI.
 Die Firmware hält die Testfarbe `hold_ms` lang (Default 5 s, max 30 s),
@@ -115,6 +117,25 @@ letzten bekannten CCU-Zustand, wenn währenddessen keins kam).
 `/api/status` zeigt unter `led` Zustand, Quelle (`boot`/`local`/`host`/`api`),
 `hold`, die Zahl der CCU-Kommandos (`host_cmds`), ob ein CCU-Zustand bekannt
 ist (`host_known`) und ob er von vor einem Neustart stammt (`restored`).
+
+## Stromausfall und WatchDog-Alarm in OpenCCU
+
+OpenCCU prüft mit monit in jedem Durchlauf, ob `hb_rf_eth.ko` verbunden ist
+(Regel `hb_rf_eth-Check` in `/etc/monitrc`, liest
+`/sys/class/hb-rf-eth/hb-rf-eth/is_connected`). Schon eine einzige
+fehlgeschlagene Prüfung erzeugt die Alarmmeldung
+„WatchDog: hb-rf-eth-connection“. Nach einem Stromausfall von RFNETHM ist das
+erwartet und beim Original-HB-RF-ETH genauso, denn die Verbindung war
+tatsächlich weg. Den Alarm in der WebUI unter „Alarmmeldungen“ bestätigen.
+
+Nach dem Einschalten ist RFNETHM nach rund 4 s wieder im Netz (Ethernet-Link
+und DHCP), danach nimmt `hb_rf_eth.ko` die Session von selbst wieder auf. Die
+Modul-LED zeigt dabei kurz die lokale Farbe (grün), bis das erste
+CCU-Kommando kommt; einen gemerkten CCU-Zustand gibt es nach einem Kaltstart
+nicht. Ein OTA-Update oder `/api/reboot` unterbricht die Verbindung nur
+wenige Sekunden (der Kernel meldet sie nach 5 s ohne Keepalive als
+getrennt); der Alarm kommt dann nur, wenn eine monit-Prüfung genau in diese
+Lücke fällt.
 
 ## Direkt aufstecken: zwei Pins anpassen, eine Drahtbrücke löten
 

@@ -275,7 +275,10 @@ aus dessen Bestandsplattform-Dokumentation.
   Seit v0.19.0 setzt RFNETHM den letzten CCU-Zustand selbst wieder, wenn
   `hb_rf_eth.ko` die Session nach einem Keepalive-Timeout oder einem
   Software-Neustart von RFNETHM (Reboot, OTA-Update) wieder aufnimmt;
-  nach einem Kaltstart nicht
+  nach einem Kaltstart nicht. Nach einem Stromausfall meldet OpenCCU
+  „WatchDog: hb-rf-eth-connection“ — erwartet, wie beim Original-HB-RF-ETH
+  (siehe
+  [docs/esp32p4_port.md](docs/esp32p4_port.md#stromausfall-und-watchdog-alarm-in-openccu))
 - Modul-Reset der CCU (HB-RF-ETH Typ 4) seit v0.18.0 wie beim
   Original-HB-RF-ETH als reiner Reset-Puls; die Verbindung zum Modul
   bleibt offen und OpenCCU bringt das Modul selbst in die App. Vorher

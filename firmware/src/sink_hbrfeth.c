@@ -136,9 +136,12 @@ static void client_disconnect(hb_client_t *c)
 //   Client ohne StartConn  → gelb (rot+grün): Link steht, Frames ruhen
 //   Client mit StartConn   → grün: Frames fliessen
 // Sobald die CCU selbst einen Zustand gesetzt hat (src == HOST), lassen
-// wir ihn in Ruhe — hb_rf_eth.ko schickt ihn beim Reconnect NICHT erneut
-// (gpio_value geht nur bei Änderung raus).  Nur "alle Clients weg"
-// greift weiterhin, wie in der Referenz.  Caller hält S.mtx.
+// wir ihn in Ruhe.  Nur "alle Clients weg" greift weiterhin, wie in der
+// Referenz.  hb_rf_eth.ko schickt den Zustand beim Reconnect NICHT erneut
+// (gpio_value geht nur bei Änderung raus) — deshalb setzt der V2-Resume
+// unten den zuletzt bekannten CCU-Zustand selbst wieder
+// (hm_led_resume_host(), auch über unseren eigenen Neustart hinweg).
+// Caller hält S.mtx.
 static void led_local_update_locked(bool after_timeout)
 {
     int n_conn = 0, n_started = 0;
@@ -153,7 +156,7 @@ static void led_local_update_locked(bool after_timeout)
     }
     hm_led_state_t ls;
     hm_led_get_state(&ls);
-    if (ls.src == HM_LED_SRC_HOST) return;
+    if (ls.src == HM_LED_SRC_HOST || ls.hold) return;   // Test-Hold hat Vorrang
     hm_led_set(n_started == 0, true, false, HM_LED_SRC_LOCAL);
 }
 
@@ -251,6 +254,7 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
             // V1: reply [status=1, mirror_cnt]
             c->started = false;
             c->endpoint_id += 2;
+            hm_led_forget_host();   // neue Session, alter CCU-Zustand gilt nicht
             uint8_t resp[2] = { 1, cnt };
             send_typed_locked(ip, port, T_CONNECT, resp, 2, NULL);
             ESP_LOGI(TAG, "V1 CONNECT from %d.%d.%d.%d:%u (ep_id=%u)",
@@ -278,6 +282,10 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
             if (client_ep == 0) {
                 c->endpoint_id += 2;
                 c->started = false;
+                // Erste Verbindung dieses Kernel-Treibers (z.B. neu
+                // geladen): dessen LED-Sicht beginnt bei "aus", ein
+                // gemerkter CCU-Zustand gehört zur alten Session.
+                hm_led_forget_host();
             } else {
                 c->endpoint_id = client_ep;   // adopt + resume
                 // started NICHT anfassen: Reconnect = laufende Session,
@@ -290,6 +298,10 @@ static void handle_packet(const uint8_t *data, size_t len, uint32_t ip, uint16_t
                     c->started = true;
                     ESP_LOGW(TAG, "V2 resume into fresh session - assuming StartConn");
                 }
+                // Kernel-Sicht der Modul-LED ist unverändert, er schickt
+                // sie aber nicht neu: letzten CCU-Zustand wieder setzen,
+                // bevor led_local_update_locked() eine lokale Farbe wählt.
+                hm_led_resume_host();
             }
             uint8_t resp[3] = { 2, cnt, c->endpoint_id };
             send_typed_locked(ip, port, T_CONNECT, resp, 3, NULL);

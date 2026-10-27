@@ -289,7 +289,8 @@ static esp_err_t h_status(httpd_req_t *req)
                   "\"ka_timeouts\":%u,\"bad_crc\":%u,\"rx\":%u,\"tx\":%u,"
                   "\"led_cmds\":%u},"
           "\"led\":{\"enabled\":%s,\"r\":%s,\"g\":%s,\"b\":%s,\"src\":\"%s\","
-                   "\"hold\":%s,\"host_cmds\":%u,\"changes\":%u,"
+                   "\"hold\":%s,\"host_cmds\":%u,\"host_known\":%s,"
+                   "\"restored\":%s,\"changes\":%u,"
                    "\"gpio\":[%d,%d,%d]},"
           "\"hmu\":{\"port\":%u,\"clients\":%d,\"connects\":%u,\"disconnects\":%u,"
                    "\"tx\":%u,\"ack\":%u,\"orph\":%u,\"foreign\":%u,\"rx\":%u,"
@@ -337,7 +338,10 @@ static esp_err_t h_status(httpd_req_t *req)
         led.blue  ? "true" : "false",
         hm_led_src_str(led.src),
         led.hold ? "true" : "false",
-        (unsigned)led.host_cmds, (unsigned)led.changes,
+        (unsigned)led.host_cmds,
+        led.host_known ? "true" : "false",
+        led.restored   ? "true" : "false",
+        (unsigned)led.changes,
         led.gpio_red, led.gpio_green, led.gpio_blue,
         ls.port, ls.active_clients,
         (unsigned)ls.total_accepts, (unsigned)ls.total_disconnects,

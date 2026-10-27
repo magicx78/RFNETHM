@@ -48,9 +48,20 @@ Pegel 1 = an). Seit v0.17.0 bedient RFNETHM sie:
 
 Hat die CCU einmal einen Zustand gesetzt, überschreiben lokale Ereignisse
 ihn nicht mehr (außer „alle Clients weg“). Die lokalen Farben sind deshalb
-nur bis zum ersten CCU-Kommando zu sehen. `hb_rf_eth.ko` schickt den
-Zustand nur bei Änderungen: Nach einem Neustart von RFNETHM bleibt die
-lokale Farbe stehen, bis die CCU ihren Zustand wieder ändert.
+nur bis zum ersten CCU-Kommando zu sehen.
+
+`hb_rf_eth.ko` schickt den Zustand nur bei Änderungen, auch nach einem
+Reconnect nicht erneut. Seit v0.19.0 merkt sich RFNETHM deshalb den letzten
+CCU-Zustand und setzt ihn selbst wieder, sobald der Kernel die Session
+wieder aufnimmt (V2-Resume) — nach einem Keepalive-Timeout ebenso wie nach
+einem eigenen Software-Neustart (`/api/reboot`, OTA-Update, Panic,
+Watchdog). Der Zustand liegt dafür im RTC-Speicher, nicht im Flash.
+Verloren geht er nach einem Kaltstart (Strom weg, Reset-Taste), beim Update
+von einer Version vor 0.19.0 und wenn ein Update die Aufteilung des
+RTC-Speichers ändert; dann gilt bis zum nächsten CCU-Kommando wieder die
+lokale Anzeige. Eine neue Kernel-Session (etwa nach dem Neuladen von
+`hb_rf_eth.ko`) verwirft den gemerkten Zustand. Nach einem Test-Hold ohne
+neues CCU-Kommando kehrt die LED zum letzten bekannten CCU-Zustand zurück.
 
 ### Was die CCU anzeigt
 
@@ -99,9 +110,11 @@ getestet).
 Hardware-Test: `POST /api/led` mit `{"r":true,"g":false,"b":false,"hold_ms":5000}`
 oder ein Klick auf einen der drei Punkte in der HB-RF-ETH-Kachel der WebUI.
 Die Firmware hält die Testfarbe `hold_ms` lang (Default 5 s, max 30 s),
-puffert solange die CCU-Kommandos und wendet danach das letzte an.
+puffert solange die CCU-Kommandos und wendet danach das letzte an (oder den
+letzten bekannten CCU-Zustand, wenn währenddessen keins kam).
 `/api/status` zeigt unter `led` Zustand, Quelle (`boot`/`local`/`host`/`api`),
-`hold` und die Zahl der CCU-Kommandos (`host_cmds`).
+`hold`, die Zahl der CCU-Kommandos (`host_cmds`), ob ein CCU-Zustand bekannt
+ist (`host_known`) und ob er von vor einem Neustart stammt (`restored`).
 
 ## Direkt aufstecken: zwei Pins anpassen, eine Drahtbrücke löten
 

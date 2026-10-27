@@ -271,7 +271,11 @@ aus dessen Bestandsplattform-Dokumentation.
   `hss_led` 2.3 braucht. Die LED bleibt dort auch bei Alarm- und
   Servicemeldungen dunkel, bis ein OpenCCU-Release mit dem neuen `hss_led`
   erscheint (Details in
-  [docs/esp32p4_port.md](docs/esp32p4_port.md#rgb-led-des-rpi-rf-mod))
+  [docs/esp32p4_port.md](docs/esp32p4_port.md#rgb-led-des-rpi-rf-mod)).
+  Seit v0.19.0 setzt RFNETHM den letzten CCU-Zustand selbst wieder, wenn
+  `hb_rf_eth.ko` die Session nach einem Keepalive-Timeout oder einem
+  Software-Neustart von RFNETHM (Reboot, OTA-Update) wieder aufnimmt;
+  nach einem Kaltstart nicht
 - Modul-Reset der CCU (HB-RF-ETH Typ 4) seit v0.18.0 wie beim
   Original-HB-RF-ETH als reiner Reset-Puls; die Verbindung zum Modul
   bleibt offen und OpenCCU bringt das Modul selbst in die App. Vorher
@@ -282,8 +286,8 @@ aus dessen Bestandsplattform-Dokumentation.
 
 - AES-Authentifizierung in der Legacy-Bridge (Phase E — mehrtägig,
   kein Blocker für AES-aware Devices).
-- Eigenes PCB (Schaltplan und Pin-Mapping stehen; siehe
-  `docs/decisions.md`).
+- Eigenes PCB (Schaltplan und Pin-Mapping stehen, liegen aber nicht im
+  Repo).
 
 ---
 

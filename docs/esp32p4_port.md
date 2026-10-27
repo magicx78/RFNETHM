@@ -47,10 +47,54 @@ Pegel 1 = an). Seit v0.17.0 bedient RFNETHM sie:
 | CCU schreibt `/sys/class/leds/rpi_rf_mod:*` | exakt wie bestellt | HB-RF-ETH Typ 3 |
 
 Hat die CCU einmal einen Zustand gesetzt, überschreiben lokale Ereignisse
-ihn nicht mehr (außer „alle Clients weg“). OpenCCU (`hss_led`) schreibt die
-drei LEDs laufend neu, etwa zwei Typ-3-Pakete pro Sekunde; im Normalbetrieb
-bestellt es „aus“, so wie die LED der CCU3 im Betrieb dunkel bleibt. Die
-lokalen Farben sind deshalb nur bis zum ersten CCU-Kommando zu sehen.
+ihn nicht mehr (außer „alle Clients weg“). Die lokalen Farben sind deshalb
+nur bis zum ersten CCU-Kommando zu sehen. `hb_rf_eth.ko` schickt den
+Zustand nur bei Änderungen: Nach einem Neustart von RFNETHM bleibt die
+lokale Farbe stehen, bis die CCU ihren Zustand wieder ändert.
+
+### Was die CCU anzeigt
+
+Die Farben bestimmt `hss_led` in OpenCCU, mit derselben Logik wie bei der
+CCU3:
+
+| CCU-Zustand | LED |
+| --- | --- |
+| Normalbetrieb, Internet erreichbar | blau |
+| Servicemeldung offen | gelb und blau im Wechsel (langsam) |
+| Alarmmeldung offen | rot und blau im Wechsel (langsam) |
+| IP-Adresse, aber kein Internet | blau, schnell blinkend |
+| Netzwerk-Link, aber noch keine IP-Adresse | blau, langsam blinkend |
+| kein Netzwerk-Link | gelb, schnell blinkend |
+| ein CCU-Dienst läuft nicht | rot |
+| „LED-Nutzung (Funkmodul)“ in der WebUI aus (`/etc/config/disableLED`) | aus |
+
+Welche Meldungen zählen, steht in `/etc/config/hss_led_info.conf`
+(`IgnoreServiceMessages`, `IgnoreAlarmMessages`).
+
+### Einschränkung: OpenCCU bis 3.89.11 auf Home Assistant OS
+
+`hss_led` 2.3, enthalten bis einschließlich OpenCCU 3.89.11.20260919,
+schaltet Dauerlicht über den Kernel-Trigger `default-on` und Blinken über
+`timer`. Der Kernel von Home Assistant OS enthält beide nicht
+(`CONFIG_LEDS_TRIGGER_DEFAULT_ON` und `CONFIG_LEDS_TRIGGER_TIMER` nicht
+gesetzt). Der Trigger-Wechsel schlägt dann fehl, `hss_led` liest „none“,
+hält die LED für aus und setzt bei jedem Durchlauf alle drei Farben auf
+aus. RFNETHM bekommt deshalb nur „aus“-Kommandos (Bündel von 4–8
+Typ-3-Paketen alle paar Sekunden, `led.src` = `host`), und die LED bleibt
+auch bei offenen Alarm- und Servicemeldungen dunkel. Das Original-HB-RF-ETH
+ist genauso betroffen; an RFNETHM liegt es nicht.
+
+Prüfen lässt sich das auf dem CCU-Host mit
+`cat /sys/class/leds/rpi_rf_mod:red/trigger`: Fehlt `timer` in der Liste,
+tritt das Problem auf.
+
+Abhilfe bringt der neue `hss_led` aus OpenCCU-Base
+([PR #59](https://github.com/OpenCCU/OpenCCU-Base/pull/59), seit 2026-09-27
+im Hauptzweig von OpenCCU). Er setzt die Helligkeit direkt und blinkt im
+Userspace, wenn der Kernel `timer` nicht anbietet. Er ist im ersten
+OpenCCU-Release nach 3.89.11.20260919 zu erwarten; ab dann sollte die LED
+die CCU-Zustände ohne Änderung an RFNETHM zeigen (mit RFNETHM noch nicht
+getestet).
 
 Hardware-Test: `POST /api/led` mit `{"r":true,"g":false,"b":false,"hold_ms":5000}`
 oder ein Klick auf einen der drei Punkte in der HB-RF-ETH-Kachel der WebUI.
